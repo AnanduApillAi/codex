@@ -5,35 +5,47 @@ import LeftPanel from '@/components/LeftPanel';
 import RightPanel from '@/components/RightPanel';
 
 // Define the SnippetDetails interface
-interface SnippetDetails {
+interface SnippetData {
+  id?: number;
   heading: string;
   description: string;
   code: string;
   tags: string[];
-  project: string;
   folder: string;
 }
 
 export default function DashboardPage() {
+  const [selectedSnippet, setSelectedSnippet] = useState<SnippetData | null>(null);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
-  const [selectedSnippet, setSelectedSnippet] = useState<SnippetDetails | undefined>();
+  const [updateTrigger, setUpdateTrigger] = useState(0);
 
-  const handleSnippetSelect = (snippet: SnippetDetails) => {
+  const handleSnippetSelect = (snippet: SnippetData) => {
     setSelectedSnippet(snippet);
     setIsRightPanelOpen(true);
   };
 
+  const handleSnippetUpdate = () => {
+    setUpdateTrigger(prev => prev + 1);
+  };
+
   return (
     <main className="flex min-h-screen">
-      <LeftPanel />
-      <div className="flex-1 py-8">
-        <h1 className="text-3xl font-bold mb-6">Code Snippets</h1>
-        <SnippetGrid onSnippetSelect={handleSnippetSelect} />
+      <LeftPanel 
+        onSnippetSelect={handleSnippetSelect} 
+        updateTrigger={updateTrigger} 
+      />
+      <div className="flex-1">
+        <SnippetGrid 
+          selectedFolder={null}
+          onSnippetSelect={handleSnippetSelect}
+          updateTrigger={updateTrigger}
+        />
       </div>
-      <RightPanel 
+      <RightPanel
         isOpen={isRightPanelOpen}
         onClose={() => setIsRightPanelOpen(false)}
         snippetDetails={selectedSnippet}
+        onUpdate={handleSnippetUpdate}
       />
     </main>
   );

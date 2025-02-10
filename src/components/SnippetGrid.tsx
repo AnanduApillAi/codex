@@ -14,34 +14,45 @@ interface SnippetDetails {
 }
 
 interface SnippetGridProps {
+  selectedFolder: string | null;
   onSnippetSelect: (snippet: SnippetDetails) => void;
+  updateTrigger: number;
 }
 
-export function SnippetGrid({ onSnippetSelect }: SnippetGridProps) {
+export function SnippetGrid({ selectedFolder, onSnippetSelect, updateTrigger }: SnippetGridProps) {
   const [snippets, setSnippets] = useState<SnippetDetails[]>([]);
 
   useEffect(() => {
+    console.log('Loading snippets...', { updateTrigger, selectedFolder });
     const loadSnippets = async () => {
       try {
         const data = await getAllSnippets();
-        // Add createdAt if it doesn't exist
-        const snippetsWithDate = data.map(snippet => ({
-          ...snippet,
-          createdAt: snippet.createdAt || new Date(),
-        }));
-        setSnippets(snippetsWithDate);
+        console.log('Fetched snippets:', data.length);
+        
+        const filteredSnippets = data
+          .filter(snippet => !selectedFolder || snippet.folder === selectedFolder)
+          .map(snippet => ({
+            ...snippet,
+            createdAt: snippet.createdAt || new Date(),
+          }));
+        
+        console.log('Filtered snippets:', filteredSnippets.length);
+        setSnippets(filteredSnippets);
       } catch (error) {
         console.error('Error loading snippets:', error);
       }
     };
 
     loadSnippets();
-  }, []);
+  }, [selectedFolder, updateTrigger]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
       {snippets.map((snippet, index) => (
-        <div key={snippet.id || index} onClick={() => onSnippetSelect(snippet)}>
+        <div 
+          key={`${snippet.id}-${updateTrigger}`}
+          onClick={() => onSnippetSelect(snippet)}
+        >
           <SnippetCard
             snippet={{
               title: snippet.heading,

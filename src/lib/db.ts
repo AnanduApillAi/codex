@@ -89,10 +89,17 @@ export async function getAllSnippets(): Promise<SnippetDetails[]> {
   }
 }
 
-export async function updateSnippet(snippet: SnippetDetails): Promise<number> {
-  await initDB();
-  const db = await openDB<SnippetDB>(DB_NAME, 1);
-  return db.put(STORE_NAME, snippet);
+export async function updateSnippet(id: number, snippet: SnippetDetails): Promise<void> {
+  const db = await openDB(DB_NAME, 1);
+  await db.put('snippets', {
+    id, // Ensure ID is included
+    heading: snippet.heading,
+    description: snippet.description,
+    code: snippet.code,
+    tags: snippet.tags,
+    folder: snippet.folder,
+    createdAt: snippet.createdAt || new Date()
+  });
 }
 
 export async function addSnippet(snippet: SnippetDetails): Promise<number> {
@@ -105,4 +112,23 @@ export async function deleteSnippet(id: number): Promise<void> {
   await initDB();
   const db = await openDB<SnippetDB>(DB_NAME, 1);
   return db.delete(STORE_NAME, id);
+}
+
+export async function getAllFolders(): Promise<string[]> {
+  const db = await openDB(DB_NAME, 1);
+  const snippets = await db.getAll('snippets');
+  
+  // Extract unique folder names from existing snippets
+  const uniqueFolders = [...new Set(snippets.map(snippet => snippet.folder))].filter(Boolean);
+  return uniqueFolders.sort();
+}
+
+export interface Snippet {
+  id?: number;
+  heading: string;
+  description: string;
+  code: string;
+  tags: string[];
+  folder: string;
+  createdAt?: Date;
 } 

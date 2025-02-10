@@ -5,7 +5,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { X, Plus, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { updateSnippet } from '@/lib/db';
+import { updateSnippet, getAllFolders } from '@/lib/db';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from 'react-hot-toast';
 
 interface SnippetDetails {
   id?: number;
@@ -14,15 +22,17 @@ interface SnippetDetails {
   code: string;
   tags: string[];
   folder: string;
+  createdAt?: Date;
 }
 
 interface RightPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  snippetDetails?: SnippetDetails;
+  snippetDetails: SnippetDetails | null;
+  onUpdate: () => void;
 }
 
-export default function RightPanel({ isOpen, onClose, snippetDetails }: RightPanelProps) {
+export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate }: RightPanelProps) {
   const [width, setWidth] = useState(384);
   const minWidth = 300;
   const maxWidth = 600;
@@ -35,6 +45,21 @@ export default function RightPanel({ isOpen, onClose, snippetDetails }: RightPan
     folder: ''
   });
   const [newTag, setNewTag] = useState('');
+  const [folders, setFolders] = useState<string[]>([]);
+  const [newFolder, setNewFolder] = useState('');
+
+  // Load folders when component mounts
+  useEffect(() => {
+    const loadFolders = async () => {
+      try {
+        const folderList = await getAllFolders();
+        setFolders(folderList);
+      } catch (error) {
+        console.error('Error loading folders:', error);
+      }
+    };
+    loadFolders();
+  }, []);
 
   // Update form data when snippetDetails changes
   useEffect(() => {
@@ -103,13 +128,20 @@ export default function RightPanel({ isOpen, onClose, snippetDetails }: RightPan
 
   const handleSave = async () => {
     try {
-      await updateSnippet(formData);
-      console.log('Snippet saved successfully');
-      onClose(); // Optional: close the panel after saving
+      if (snippetDetails?.id) {
+        await updateSnippet(snippetDetails.id, {
+          ...formData,
+          id: snippetDetails.id // Ensure ID is included
+        });
+        onUpdate();
+        toast.success('Snippet updated successfully');
+        onClose();
+      }
     } catch (error) {
-      console.error('Error saving snippet:', error);
-      // You might want to show an error message to the user here
+      console.error('Error updating snippet:', error);
+      toast.error('Failed to update snippet');
     }
+
   };
 
   if (!isOpen) return null;
@@ -201,10 +233,32 @@ export default function RightPanel({ isOpen, onClose, snippetDetails }: RightPan
 
             <div>
               <label className="text-sm font-medium mb-1 block">Folder</label>
-              <Input 
-                value={formData.folder} 
-                className="bg-gray-50 dark:bg-gray-900"
-              />
+              <div className="flex gap-2">
+                <Select
+                  value={formData.folder}
+                  onValueChange={(value) => handleChange('folder', value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select or type folder name" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {folders.map((folder) => (
+                      <SelectItem key={folder} value={folder}>
+                        {folder}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Or type new folder"
+                  value={newFolder}
+                  onChange={(e) => {
+                    setNewFolder(e.target.value);
+                    handleChange('folder', e.target.value);
+                  }}
+                  className="max-w-[200px]"
+                />
+              </div>
             </div>
 
             {/* Save Button */}
