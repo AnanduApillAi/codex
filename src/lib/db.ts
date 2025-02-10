@@ -7,6 +7,8 @@ interface SnippetDetails {
   code: string;
   tags: string[];
   folder: string;
+  inactive?: boolean;
+  createdAt?: Date;
 }
 
 interface SnippetDB extends DBSchema {
@@ -91,20 +93,45 @@ export async function getAllSnippets(): Promise<SnippetDetails[]> {
 
 export async function updateSnippet(id: number, snippet: SnippetDetails): Promise<void> {
   const db = await openDB(DB_NAME, 1);
+  
+  // Get the original snippet to check if folder changed
+  const originalSnippet = await db.get('snippets', id);
+  const oldFolder = originalSnippet?.folder;
+  
+  // Update the snippet
   await db.put('snippets', {
-    id, // Ensure ID is included
+    id,
     heading: snippet.heading,
     description: snippet.description,
     code: snippet.code,
     tags: snippet.tags,
     folder: snippet.folder,
+    inactive: snippet.inactive,
     createdAt: snippet.createdAt || new Date()
   });
+
+  // Handle folder changes
+  if (oldFolder && oldFolder !== snippet.folder) {
+    // Check old folder and add placeholder if empty
+    const snippetsInOldFolder = await getSnippetsInFolder(oldFolder);
+    if (snippetsInOldFolder.length === 0) {
+      await createPlaceholderSnippet(oldFolder);
+    }
+    
+    // Remove placeholder in new folder if it exists
+    await removePlaceholderSnippet(snippet.folder);
+  }
 }
 
 export async function addSnippet(snippet: SnippetDetails): Promise<number> {
   await initDB();
   const db = await openDB<SnippetDB>(DB_NAME, 1);
+  
+  // If this is not a placeholder snippet, remove any existing placeholder in the folder
+  if (!snippet.inactive) {
+    await removePlaceholderSnippet(snippet.folder);
+  }
+  
   return db.add(STORE_NAME, snippet);
 }
 
@@ -131,4 +158,37 @@ export interface Snippet {
   tags: string[];
   folder: string;
   createdAt?: Date;
+}
+
+// Add this new function to check snippets in a folder
+async function getSnippetsInFolder(folderName: string): Promise<SnippetDetails[]> {
+  const db = await openDB<SnippetDB>(DB_NAME, 1);
+  const allSnippets = await db.getAll(STORE_NAME);
+  return allSnippets.filter(snippet => snippet.folder === folderName);
+}
+
+// Add this function to create a placeholder snippet
+async function createPlaceholderSnippet(folderName: string): Promise<void> {
+  const placeholder: SnippetDetails = {
+    heading: "Folder Placeholder",
+    description: "This is a placeholder to keep the folder structure",
+    code: "",
+    tags: ["placeholder"],
+    folder: folderName,
+    inactive: true
+  };
+  await addSnippet(placeholder);
+}
+
+// Add this function to find and remove placeholder snippets in a folder
+async function removePlaceholderSnippet(folderName: string): Promise<void> {
+  const db = await openDB<SnippetDB>(DB_NAME, 1);
+  const snippets = await getSnippetsInFolder(folderName);
+  
+  // Find and delete placeholder snippets in the folder
+  for (const snippet of snippets) {
+    if (snippet.inactive && snippet.id) {
+      await db.delete(STORE_NAME, snippet.id);
+    }
+  }
 } 

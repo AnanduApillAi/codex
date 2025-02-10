@@ -10,6 +10,7 @@ interface SnippetDetails {
   code: string;
   tags: string[];
   folder: string;
+  inactive?: boolean;
   createdAt?: Date;
 }
 
@@ -30,7 +31,7 @@ export function SnippetGrid({ selectedFolder, onSnippetSelect, updateTrigger }: 
         console.log('Fetched snippets:', data.length);
         
         const filteredSnippets = data
-          .filter(snippet => !selectedFolder || snippet.folder === selectedFolder)
+          .filter(snippet => !snippet.inactive)
           .map(snippet => ({
             ...snippet,
             createdAt: snippet.createdAt || new Date(),

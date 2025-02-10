@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { X, Plus, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { updateSnippet, getAllFolders } from '@/lib/db';
+import { updateSnippet, getAllFolders, addSnippet } from '@/lib/db';
 import {
   Select,
   SelectContent,
@@ -22,6 +22,7 @@ interface SnippetDetails {
   code: string;
   tags: string[];
   folder: string;
+  inactive?: boolean;
   createdAt?: Date;
 }
 
@@ -30,9 +31,10 @@ interface RightPanelProps {
   onClose: () => void;
   snippetDetails: SnippetDetails | null;
   onUpdate: () => void;
+  updateTrigger: boolean;
 }
 
-export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate }: RightPanelProps) {
+export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, updateTrigger }: RightPanelProps) {
   const [width, setWidth] = useState(384);
   const minWidth = 300;
   const maxWidth = 600;
@@ -42,13 +44,14 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate }
     description: '',
     code: '',
     tags: [],
-    folder: ''
+    folder: '',
+    inactive: false
   });
   const [newTag, setNewTag] = useState('');
   const [folders, setFolders] = useState<string[]>([]);
   const [newFolder, setNewFolder] = useState('');
 
-  // Load folders when component mounts
+  // Load folders when component mounts AND when panel opens
   useEffect(() => {
     const loadFolders = async () => {
       try {
@@ -58,15 +61,36 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate }
         console.error('Error loading folders:', error);
       }
     };
-    loadFolders();
-  }, []);
+    
+    if (isOpen) {
+      loadFolders();
+    }
+  }, [isOpen]); // Add isOpen to dependency array
 
   // Update form data when snippetDetails changes
   useEffect(() => {
     if (snippetDetails) {
-      setFormData(snippetDetails);
+      setFormData({
+        ...snippetDetails,
+        heading: snippetDetails.heading,
+        description: snippetDetails.description,
+        code: snippetDetails.code,
+        tags: snippetDetails.tags || [],
+        folder: snippetDetails.folder
+      });
+      // Also refresh folders list when a snippet is loaded
+      getAllFolders().then(setFolders);
+    } else {
+      // Clear form data when snippetDetails is null
+      setFormData({
+        heading: '',
+        description: '',
+        code: '',
+        tags: [],
+        folder: ''
+      });
     }
-  }, [snippetDetails]);
+  }, [snippetDetails, updateTrigger]); // Add updateTrigger to dependency array
 
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -129,19 +153,30 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate }
   const handleSave = async () => {
     try {
       if (snippetDetails?.id) {
+        // Update existing snippet
         await updateSnippet(snippetDetails.id, {
           ...formData,
-          id: snippetDetails.id // Ensure ID is included
+          id: snippetDetails.id
         });
-        onUpdate();
-        toast.success('Snippet updated successfully');
-        onClose();
+      } else {
+        // Add new snippet
+        await addSnippet({
+          ...formData,
+          createdAt: new Date()
+        });
       }
+      
+      onUpdate();
+      toast.success(snippetDetails?.id ? 'Snippet updated successfully' : 'Snippet added successfully');
+      onClose();
+      
+      // Refresh folders list after update
+      const updatedFolders = await getAllFolders();
+      setFolders(updatedFolders);
     } catch (error) {
-      console.error('Error updating snippet:', error);
-      toast.error('Failed to update snippet');
+      console.error('Error saving snippet:', error);
+      toast.error('Failed to save snippet');
     }
-
   };
 
   if (!isOpen) return null;

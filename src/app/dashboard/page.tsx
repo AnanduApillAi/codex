@@ -18,25 +18,50 @@ export default function DashboardPage() {
   const [selectedSnippet, setSelectedSnippet] = useState<SnippetData | null>(null);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [updateTrigger, setUpdateTrigger] = useState(0);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
 
-  const handleSnippetSelect = (snippet: SnippetData) => {
+  const handleSnippetSelect = (snippet: SnippetData | null, openPanel: boolean = true) => {
     setSelectedSnippet(snippet);
-    setIsRightPanelOpen(true);
+    if (openPanel) {
+      setIsRightPanelOpen(true);
+    }
   };
 
   const handleSnippetUpdate = () => {
     setUpdateTrigger(prev => prev + 1);
   };
 
+  const handleNewSnippet = (selectedFolder: string | null) => {
+    const newSnippet: SnippetData = {
+      heading: '',
+      description: '',
+      code: '',
+      tags: [],
+      folder: selectedFolder || '',
+    };
+    
+    setSelectedSnippet(newSnippet);
+    setIsRightPanelOpen(true);
+  };
+
+  const handleFolderSelect = (folder: string | null) => {
+    setSelectedFolder(folder);
+  };
+
   return (
     <main className="flex min-h-screen">
       <LeftPanel 
         onSnippetSelect={handleSnippetSelect} 
-        updateTrigger={updateTrigger} 
+        updateTrigger={updateTrigger}
+        onNewSnippet={handleNewSnippet}
+        selectedFolder={selectedFolder}
+        setSelectedFolder={setSelectedFolder}
+        onUpdate={handleSnippetUpdate}
+        snippetDetails={selectedSnippet}
       />
       <div className="flex-1">
         <SnippetGrid 
-          selectedFolder={null}
+          selectedFolder={selectedFolder}
           onSnippetSelect={handleSnippetSelect}
           updateTrigger={updateTrigger}
         />
