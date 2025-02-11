@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { X, Plus, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { updateSnippet, getAllFolders, addSnippet } from '@/lib/db';
+import { updateSnippet, getAllFolders, addSnippet, getAllSnippets } from '@/lib/db';
 import {
   Select,
   SelectContent,
@@ -31,7 +31,7 @@ interface RightPanelProps {
   onClose: () => void;
   snippetDetails: SnippetDetails | null;
   onUpdate: () => void;
-  updateTrigger: boolean;
+  updateTrigger: number;
 }
 
 export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, updateTrigger }: RightPanelProps) {
@@ -49,9 +49,8 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, 
   });
   const [newTag, setNewTag] = useState('');
   const [folders, setFolders] = useState<string[]>([]);
-  const [newFolder, setNewFolder] = useState('');
 
-  // Load folders when component mounts AND when panel opens
+  // Load folders when component mounts AND when panel opens or updateTrigger changes
   useEffect(() => {
     const loadFolders = async () => {
       try {
@@ -65,7 +64,7 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, 
     if (isOpen) {
       loadFolders();
     }
-  }, [isOpen]); // Add isOpen to dependency array
+  }, [isOpen, updateTrigger]); // Add updateTrigger to dependency array
 
   // Update form data when snippetDetails changes
   useEffect(() => {
@@ -78,8 +77,28 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, 
         tags: snippetDetails.tags || [],
         folder: snippetDetails.folder
       });
-      // Also refresh folders list when a snippet is loaded
-      getAllFolders().then(setFolders);
+      
+      // Refresh folders list when a snippet is loaded
+      const loadFolders = async () => {
+        try {
+          const folderList = await getAllFolders();
+          setFolders(folderList);
+          // If the current folder was renamed, update the form data with the new folder name
+          if (snippetDetails.folder && !folderList.includes(snippetDetails.folder)) {
+            const updatedSnippets = await getAllSnippets();
+            const updatedSnippet = updatedSnippets.find(s => s.id === snippetDetails.id);
+            if (updatedSnippet) {
+              setFormData(prev => ({
+                ...prev,
+                folder: updatedSnippet.folder
+              }));
+            }
+          }
+        } catch (error) {
+          console.error('Error loading folders:', error);
+        }
+      };
+      loadFolders();
     } else {
       // Clear form data when snippetDetails is null
       setFormData({
@@ -268,32 +287,23 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, 
 
             <div>
               <label className="text-sm font-medium mb-1 block">Folder</label>
-              <div className="flex gap-2">
-                <Select
-                  value={formData.folder}
-                  onValueChange={(value) => handleChange('folder', value)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select or type folder name" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {folders.map((folder) => (
-                      <SelectItem key={folder} value={folder}>
-                        {folder}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  placeholder="Or type new folder"
-                  value={newFolder}
-                  onChange={(e) => {
-                    setNewFolder(e.target.value);
-                    handleChange('folder', e.target.value);
-                  }}
-                  className="max-w-[200px]"
-                />
-              </div>
+              <Select
+                value={formData.folder}
+                onValueChange={(value) => handleChange('folder', value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {formData.folder || 'Select folder'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {folders.map((folder) => (
+                    <SelectItem key={folder} value={folder}>
+                      {folder}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Save Button */}

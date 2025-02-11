@@ -71,6 +71,7 @@ export default function DashboardPage() {
         onClose={() => setIsRightPanelOpen(false)}
         snippetDetails={selectedSnippet}
         onUpdate={handleSnippetUpdate}
+        updateTrigger={updateTrigger}
       />
     </main>
   );

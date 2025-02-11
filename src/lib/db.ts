@@ -191,4 +191,23 @@ async function removePlaceholderSnippet(folderName: string): Promise<void> {
       await db.delete(STORE_NAME, snippet.id);
     }
   }
+}
+
+// Add this new function
+export async function renameFolder(oldFolderName: string, newFolderName: string): Promise<void> {
+  const db = await openDB<SnippetDB>(DB_NAME, 1);
+  const snippets = await db.getAll(STORE_NAME);
+  
+  // Find all snippets in the old folder (both active and inactive)
+  const folderSnippets = snippets.filter(s => s.folder === oldFolderName);
+  
+  // Update all snippets with the new folder name
+  for (const snippet of folderSnippets) {
+    if (snippet.id) {
+      await db.put(STORE_NAME, {
+        ...snippet,
+        folder: newFolderName
+      });
+    }
+  }
 } 

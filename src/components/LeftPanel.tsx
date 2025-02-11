@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileIcon, ChevronLeft, ChevronRight, ChevronDown, FolderIcon, Search, Plus, MoreVertical, Edit, Trash } from "lucide-react";
-import { getAllSnippets, getAllFolders, addSnippet, updateSnippet, deleteSnippet } from '@/lib/db';
+import { getAllSnippets, getAllFolders, addSnippet, updateSnippet, deleteSnippet, renameFolder } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 
@@ -46,6 +46,12 @@ interface ContextMenuState {
   snippet: SnippetData | null;
 }
 
+interface FolderContextMenuState {
+  show: boolean;
+  position: ContextMenuPosition;
+  folderName: string | null;
+}
+
 export default function LeftPanel({ 
   onSnippetSelect, 
   updateTrigger, 
@@ -71,6 +77,13 @@ export default function LeftPanel({
   });
   const [isRenaming, setIsRenaming] = useState(false);
   const [newSnippetName, setNewSnippetName] = useState('');
+  const [folderContextMenu, setFolderContextMenu] = useState<FolderContextMenuState>({
+    show: false,
+    position: { x: 0, y: 0 },
+    folderName: null
+  });
+  const [isRenamingFolder, setIsRenamingFolder] = useState(false);
+  const [folderToRename, setFolderToRename] = useState<string | null>(null);
   const minWidth = 150;
   const collapsedWidth = 48;
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -131,11 +144,12 @@ export default function LeftPanel({
     }
   }, [searchQuery, allSnippets]);
 
-  // Close context menu when clicking outside
+  // Update the useEffect for click outside handling to include folderContextMenu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
         setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
+        setFolderContextMenu({ show: false, position: { x: 0, y: 0 }, folderName: null });
       }
     };
 
@@ -359,6 +373,131 @@ export default function LeftPanel({
     }
   };
 
+  const handleFolderContextMenu = (e: React.MouseEvent, folderName: string) => {
+    e.preventDefault();
+    setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
+    setFolderContextMenu({
+      show: true,
+      position: { x: e.pageX, y: e.pageY },
+      folderName: folderName
+    });
+  };
+
+  const handleRenameFolderClick = () => {
+    if (folderContextMenu.folderName) {
+      setNewFolderName(folderContextMenu.folderName);
+      setFolderToRename(folderContextMenu.folderName);
+      setIsRenamingFolder(true);
+      setFolderContextMenu(prev => ({ ...prev, show: false }));
+    }
+  };
+
+  const handleRenameFolder = async () => {
+    if (folderToRename && newFolderName.trim()) {
+      try {
+        await renameFolder(folderToRename, newFolderName.trim());
+
+        // Reset states
+        setIsRenamingFolder(false);
+        setFolderToRename(null);
+        setNewFolderName('');
+        
+        // Refresh data
+        const updatedSnippets = await getAllSnippets();
+        const updatedFolders = await getAllFolders();
+        
+        const folderData = updatedFolders.map(folderName => ({
+          name: folderName,
+          snippetCount: updatedSnippets.filter(s => s.folder === folderName && !s.inactive).length,
+          snippets: updatedSnippets
+            .filter(s => s.folder === folderName && !s.inactive)
+            .map(s => ({
+              id: s.id,
+              heading: s.heading,
+              description: s.description,
+              code: s.code,
+              tags: s.tags,
+              folder: s.folder,
+              inactive: s.inactive
+            })),
+          isOpen: folders.find(f => f.name === folderName)?.isOpen || false
+        }));
+
+        setFolders(folderData);
+        onUpdate(); // This will trigger updates in RightPanel and SnippetGrid
+        toast.success('Folder renamed successfully');
+      } catch (error) {
+        console.error('Error renaming folder:', error);
+        toast.error('Failed to rename folder');
+      }
+    }
+  };
+
+  const handleDeleteFolder = async () => {
+    if (folderContextMenu.folderName) {
+      try {
+        // Get all snippets
+        const snippets = await getAllSnippets();
+        
+        // Find and delete the placeholder snippet of the folder
+        const placeholder = snippets.find(s => 
+          s.folder === folderContextMenu.folderName && 
+          s.inactive === true && 
+          s.heading === "Folder Placeholder"
+        );
+        
+        if (placeholder?.id) {
+          await deleteSnippet(placeholder.id);
+        }
+
+        // Update all active snippets in the folder to move them to "Deleted" or another folder
+        const folderSnippets = snippets.filter(s => 
+          s.folder === folderContextMenu.folderName && !s.inactive
+        );
+
+        for (const snippet of folderSnippets) {
+          if (snippet.id) {
+            await updateSnippet(snippet.id, {
+              ...snippet,
+              folder: "Deleted" // Move to Deleted folder
+            });
+          }
+        }
+
+        // Reset folder context menu state
+        setFolderContextMenu({ show: false, position: { x: 0, y: 0 }, folderName: null });
+
+        // Refresh data
+        const updatedSnippets = await getAllSnippets();
+        const updatedFolders = await getAllFolders();
+        
+        const folderData = updatedFolders.map(folderName => ({
+          name: folderName,
+          snippetCount: updatedSnippets.filter(s => s.folder === folderName && !s.inactive).length,
+          snippets: updatedSnippets
+            .filter(s => s.folder === folderName && !s.inactive)
+            .map(s => ({
+              id: s.id,
+              heading: s.heading,
+              description: s.description,
+              code: s.code,
+              tags: s.tags,
+              folder: s.folder,
+              inactive: s.inactive
+            })),
+          isOpen: folders.find(f => f.name === folderName)?.isOpen || false
+        }));
+
+        setFolders(folderData);
+        onUpdate(); // This will trigger updates in RightPanel and SnippetGrid
+        toast.success('Folder deleted successfully');
+      } catch (error) {
+        console.error('Error deleting folder:', error);
+        toast.error('Failed to delete folder');
+      }
+    }
+  };
+
   return (
     <div 
       className="relative flex h-screen"
@@ -453,6 +592,7 @@ export default function LeftPanel({
                 <div key={folder.name} className="space-y-1">
                   <button
                     onClick={() => toggleFolder(folder.name)}
+                    onContextMenu={(e) => handleFolderContextMenu(e, folder.name)}
                     className={cn(
                       "w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors",
                       selectedFolder === folder.name && "bg-muted"
@@ -464,7 +604,34 @@ export default function LeftPanel({
                       <ChevronRight className="h-4 w-4" />
                     )}
                     <FolderIcon className="h-4 w-4" />
-                    <span className="text-sm flex-1 text-left">{folder.name}</span>
+                    {isRenamingFolder && folderToRename === folder.name ? (
+                      <Input
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            await handleRenameFolder();
+                            setIsRenamingFolder(false);
+                            setFolderToRename(null);
+                          } else if (e.key === 'Escape') {
+                            setIsRenamingFolder(false);
+                            setFolderToRename(null);
+                            setNewFolderName('');
+                          }
+                        }}
+                        className="h-6 px-1"
+                        autoFocus
+                        onBlur={() => {
+                          setIsRenamingFolder(false);
+                          setFolderToRename(null);
+                          setNewFolderName('');
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span className="text-sm flex-1 text-left">{folder.name}</span>
+                    )}
                     <span className="text-xs text-muted-foreground">
                       {folder.snippetCount}
                     </span>
@@ -583,6 +750,40 @@ export default function LeftPanel({
             onClick={(e) => {
               e.stopPropagation();
               handleDeleteSnippet();
+            }}
+          >
+            <Trash className="h-4 w-4" />
+            Delete
+          </button>
+        </div>
+      )}
+
+      {/* Folder Context Menu */}
+      {folderContextMenu.show && (
+        <div
+          ref={contextMenuRef}
+          className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 z-50"
+          style={{ 
+            left: folderContextMenu.position.x, 
+            top: folderContextMenu.position.y,
+            minWidth: '160px'
+          }}
+        >
+          <button
+            className="w-full px-3 py-1.5 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRenameFolderClick();
+            }}
+          >
+            <Edit className="h-4 w-4" />
+            Rename
+          </button>
+          <button
+            className="w-full px-3 py-1.5 text-sm text-left text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteFolder();
             }}
           >
             <Trash className="h-4 w-4" />
