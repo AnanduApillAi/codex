@@ -64,6 +64,7 @@ export default function DashboardPage() {
           selectedFolder={selectedFolder}
           onSnippetSelect={handleSnippetSelect}
           updateTrigger={updateTrigger}
+          onNewSnippet={handleNewSnippet}
         />
       </div>
       <RightPanel

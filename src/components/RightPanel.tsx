@@ -61,10 +61,8 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, 
       }
     };
     
-    if (isOpen) {
-      loadFolders();
-    }
-  }, [isOpen, updateTrigger]); // Add updateTrigger to dependency array
+    loadFolders(); // Remove the isOpen condition to ensure folders are always updated
+  }, [updateTrigger]); // Remove isOpen from dependency array
 
   // Update form data when snippetDetails changes
   useEffect(() => {

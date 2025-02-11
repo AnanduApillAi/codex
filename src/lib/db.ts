@@ -9,6 +9,7 @@ interface SnippetDetails {
   folder: string;
   inactive?: boolean;
   createdAt?: Date;
+  skipPlaceholder?: boolean;
 }
 
 interface SnippetDB extends DBSchema {
@@ -110,8 +111,8 @@ export async function updateSnippet(id: number, snippet: SnippetDetails): Promis
     createdAt: snippet.createdAt || new Date()
   });
 
-  // Handle folder changes
-  if (oldFolder && oldFolder !== snippet.folder) {
+  // Handle folder changes only if skipPlaceholder is not true
+  if (!snippet.skipPlaceholder && oldFolder && oldFolder !== snippet.folder) {
     // Check old folder and add placeholder if empty
     const snippetsInOldFolder = await getSnippetsInFolder(oldFolder);
     if (snippetsInOldFolder.length === 0) {

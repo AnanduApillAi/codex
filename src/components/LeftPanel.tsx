@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileIcon, ChevronLeft, ChevronRight, ChevronDown, FolderIcon, Search, Plus, MoreVertical, Edit, Trash } from "lucide-react";
+import { FileIcon, ChevronLeft, ChevronRight, ChevronDown, FolderIcon, Search, MoreVertical, Edit, Trash } from "lucide-react";
 import { getAllSnippets, getAllFolders, addSnippet, updateSnippet, deleteSnippet, renameFolder } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
@@ -84,6 +84,7 @@ export default function LeftPanel({
   });
   const [isRenamingFolder, setIsRenamingFolder] = useState(false);
   const [folderToRename, setFolderToRename] = useState<string | null>(null);
+  const [unorganizedSnippets, setUnorganizedSnippets] = useState<SnippetData[]>([]);
   const minWidth = 150;
   const collapsedWidth = 48;
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -103,6 +104,9 @@ export default function LeftPanel({
         }));
         
         setAllSnippets(activeSnippets);
+        
+        // Set unorganized snippets (snippets with empty folder)
+        setUnorganizedSnippets(activeSnippets.filter(s => !s.folder || s.folder.trim() === ''));
         
         const folderList = await getAllFolders();
         const folderData = folderList.map(folderName => ({
@@ -252,6 +256,7 @@ export default function LeftPanel({
         }));
 
         setFolders(folderData);
+        onUpdate();
         toast.success('Folder created successfully');
       } catch (error) {
         console.error('Error creating new folder:', error);
@@ -311,7 +316,7 @@ export default function LeftPanel({
         
         // Update the selected snippet without opening the panel
         if (snippetDetails && snippetDetails.id === contextMenu.snippet.id) {
-          onSnippetSelect(updatedSnippet, false); // Pass false to prevent panel from opening
+          onSnippetSelect(updatedSnippet);
         }
         
         toast.success('Snippet renamed successfully');
@@ -331,10 +336,18 @@ export default function LeftPanel({
         };
         
         await updateSnippet(contextMenu.snippet.id, updatedSnippet);
+        
+        // Fetch the fresh snippet data
+        const snippets = await getAllSnippets();
+        const freshSnippet = snippets.find(s => s.id === contextMenu.snippet?.id);
+        
+        if (snippetDetails && snippetDetails.id === contextMenu.snippet.id) {
+          onSnippetSelect(freshSnippet || null);
+        }
+        
         setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
         
         // Fetch and update data
-        const snippets = await getAllSnippets();
         const updatedFolders = await getAllFolders();
         
         const folderData = updatedFolders.map(folderName => ({
@@ -356,9 +369,6 @@ export default function LeftPanel({
 
         setFolders(folderData);
         onUpdate(); // Trigger global update
-        
-        // Close the right panel if the deleted snippet is currently selected
-        onSnippetSelect(null);
         
         // Update selected folder if the current folder is empty
         if (selectedFolder === contextMenu.snippet.folder) {
@@ -439,7 +449,7 @@ export default function LeftPanel({
         // Get all snippets
         const snippets = await getAllSnippets();
         
-        // Find and delete the placeholder snippet of the folder
+        // Find and delete the placeholder snippet first
         const placeholder = snippets.find(s => 
           s.folder === folderContextMenu.folderName && 
           s.inactive === true && 
@@ -450,26 +460,38 @@ export default function LeftPanel({
           await deleteSnippet(placeholder.id);
         }
 
-        // Update all active snippets in the folder to move them to "Deleted" or another folder
+        // Update all active snippets in the folder to move them to "Deleted"
         const folderSnippets = snippets.filter(s => 
-          s.folder === folderContextMenu.folderName && !s.inactive
+          s.folder === folderContextMenu.folderName && 
+          !s.inactive &&
+          s.heading !== "Folder Placeholder" // Exclude placeholder from being moved
         );
 
+        // Move snippets to Deleted folder one by one
         for (const snippet of folderSnippets) {
           if (snippet.id) {
-            await updateSnippet(snippet.id, {
+            const updatedSnippet = {
               ...snippet,
-              folder: "Deleted" // Move to Deleted folder
-            });
+              folder: "Deleted",
+              // Add a flag to prevent placeholder creation
+              skipPlaceholder: true
+            };
+            await updateSnippet(snippet.id, updatedSnippet);
           }
         }
 
         // Reset folder context menu state
         setFolderContextMenu({ show: false, position: { x: 0, y: 0 }, folderName: null });
 
-        // Refresh data
-        const updatedSnippets = await getAllSnippets();
-        const updatedFolders = await getAllFolders();
+        // Refresh data - but exclude the deleted folder from results
+        const updatedSnippets = (await getAllSnippets()).filter(s => 
+          s.folder !== folderContextMenu.folderName || 
+          (s.folder === folderContextMenu.folderName && s.heading !== "Folder Placeholder")
+        );
+        
+        const updatedFolders = (await getAllFolders()).filter(f => 
+          f !== folderContextMenu.folderName
+        );
         
         const folderData = updatedFolders.map(folderName => ({
           name: folderName,
@@ -556,151 +578,186 @@ export default function LeftPanel({
             </div>
           )}
 
-          {/* Folders */}
+          {/* Folders and Snippets */}
           <div className="flex-1 overflow-auto px-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold">Folders</h2>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  title="New File"
-                  onClick={() => onNewSnippet(selectedFolder)}
-                >
-                  <div className="flex items-center">
-                    <FileIcon className="h-3.5 w-3.5" />
-                    <Plus className="h-3 w-3 absolute -right-0.5 -bottom-0.5" />
-                  </div>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  title="New Folder"
-                  onClick={handleNewFolder}
-                >
-                  <div className="flex items-center">
-                    <FolderIcon className="h-3.5 w-3.5" />
-                    <Plus className="h-3 w-3 absolute -right-0.5 -bottom-0.5" />
-                  </div>
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-1">
-              {folders.map((folder) => (
-                <div key={folder.name} className="space-y-1">
-                  <button
-                    onClick={() => toggleFolder(folder.name)}
-                    onContextMenu={(e) => handleFolderContextMenu(e, folder.name)}
-                    className={cn(
-                      "w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors",
-                      selectedFolder === folder.name && "bg-muted"
-                    )}
+            {/* Folders section */}
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold">Folders</h2>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    title="New Folder"
+                    onClick={handleNewFolder}
                   >
-                    {folder.isOpen ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                    <FolderIcon className="h-4 w-4" />
-                    {isRenamingFolder && folderToRename === folder.name ? (
-                      <Input
-                        value={newFolderName}
-                        onChange={(e) => setNewFolderName(e.target.value)}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            await handleRenameFolder();
-                            setIsRenamingFolder(false);
-                            setFolderToRename(null);
-                          } else if (e.key === 'Escape') {
+                    <div className="flex items-center">
+                      <FolderIcon className="h-3.5 w-3.5" />
+                      
+                    </div>
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                {/* Unorganized Snippets - inline with folders */}
+                {unorganizedSnippets.map((snippet) => (
+                  <div key={snippet.id} className="relative">
+                    <button
+                      onContextMenu={(e) => handleSnippetContextMenu(e, snippet)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isRenaming) {
+                          handleSnippetClick(snippet);
+                        }
+                      }}
+                      className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted/50 text-sm flex items-center gap-2"
+                    >
+                      <FileIcon className="h-4 w-4 ml-6" />
+                      {isRenaming && contextMenu.snippet?.id === snippet.id ? (
+                        <Input
+                          value={newSnippetName}
+                          onChange={(e) => setNewSnippetName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleRenameSnippet();
+                            } else if (e.key === 'Escape') {
+                              setIsRenaming(false);
+                              setNewSnippetName('');
+                              setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
+                            }
+                          }}
+                          className="h-6 px-1"
+                          autoFocus
+                          onBlur={() => {
+                            setIsRenaming(false);
+                            setNewSnippetName('');
+                            setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
+                          }}
+                        />
+                      ) : (
+                        <span className="truncate">{snippet.heading}</span>
+                      )}
+                    </button>
+                  </div>
+                ))}
+
+                {/* Folders */}
+                {folders.map((folder) => (
+                  <div key={folder.name} className="space-y-1">
+                    <button
+                      onClick={() => toggleFolder(folder.name)}
+                      onContextMenu={(e) => handleFolderContextMenu(e, folder.name)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors",
+                        selectedFolder === folder.name && "bg-muted"
+                      )}
+                    >
+                      {folder.isOpen ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      <FolderIcon className="h-4 w-4" />
+                      {isRenamingFolder && folderToRename === folder.name ? (
+                        <Input
+                          value={newFolderName}
+                          onChange={(e) => setNewFolderName(e.target.value)}
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              await handleRenameFolder();
+                              setIsRenamingFolder(false);
+                              setFolderToRename(null);
+                            } else if (e.key === 'Escape') {
+                              setIsRenamingFolder(false);
+                              setFolderToRename(null);
+                              setNewFolderName('');
+                            }
+                          }}
+                          className="h-6 px-1"
+                          autoFocus
+                          onBlur={() => {
                             setIsRenamingFolder(false);
                             setFolderToRename(null);
                             setNewFolderName('');
-                          }
-                        }}
-                        className="h-6 px-1"
-                        autoFocus
-                        onBlur={() => {
-                          setIsRenamingFolder(false);
-                          setFolderToRename(null);
-                          setNewFolderName('');
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      <span className="text-sm flex-1 text-left">{folder.name}</span>
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      {folder.snippetCount}
-                    </span>
-                  </button>
-                  {folder.isOpen && (
-                    <div className="ml-9 border-l pl-2 space-y-1">
-                      {folder.snippets.map((snippet) => (
-                        <div key={snippet.id} className="relative">
-                          <button
-                            onContextMenu={(e) => handleSnippetContextMenu(e, snippet)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!isRenaming) {
-                                handleSnippetClick(snippet);
-                              }
-                            }}
-                            className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted/50 text-sm flex items-center gap-2"
-                          >
-                            <FileIcon className="h-4 w-4" />
-                            {isRenaming && contextMenu.snippet?.id === snippet.id ? (
-                              <Input
-                                value={newSnippetName}
-                                onChange={(e) => setNewSnippetName(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    handleRenameSnippet();
-                                  } else if (e.key === 'Escape') {
-                                    e.preventDefault();
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span className="text-sm flex-1 text-left">{folder.name}</span>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {folder.snippetCount}
+                      </span>
+                    </button>
+                    {folder.isOpen && (
+                      <div className="ml-9 border-l pl-2 space-y-1">
+                        {folder.snippets.map((snippet) => (
+                          <div key={snippet.id} className="relative">
+                            <button
+                              onContextMenu={(e) => handleSnippetContextMenu(e, snippet)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isRenaming) {
+                                  handleSnippetClick(snippet);
+                                }
+                              }}
+                              className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted/50 text-sm flex items-center gap-2"
+                            >
+                              <FileIcon className="h-4 w-4" />
+                              {isRenaming && contextMenu.snippet?.id === snippet.id ? (
+                                <Input
+                                  value={newSnippetName}
+                                  onChange={(e) => setNewSnippetName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleRenameSnippet();
+                                    } else if (e.key === 'Escape') {
+                                      e.preventDefault();
+                                      setIsRenaming(false);
+                                      setNewSnippetName('');
+                                      setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
+                                    }
+                                  }}
+                                  className="h-6 px-1"
+                                  autoFocus
+                                  onBlur={() => {
                                     setIsRenaming(false);
                                     setNewSnippetName('');
                                     setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
-                                  }
-                                }}
-                                className="h-6 px-1"
-                                autoFocus
-                                onBlur={() => {
-                                  setIsRenaming(false);
-                                  setNewSnippetName('');
-                                  setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
-                                }}
-                              />
-                            ) : (
-                              <span className="truncate">{snippet.heading}</span>
-                            )}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-              
-              {/* New Folder Input */}
-              {isAddingFolder && (
-                <div className="flex items-center gap-2 px-2 py-1.5">
-                  <ChevronRight className="h-4 w-4" />
-                  <FolderIcon className="h-4 w-4" />
-                  <Input
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    onKeyDown={handleFolderNameSubmit}
-                    placeholder="New folder name..."
-                    className="h-7 px-2"
-                    autoFocus
-                    onBlur={() => setIsAddingFolder(false)}
-                  />
-                </div>
-              )}
+                                  }}
+                                />
+                              ) : (
+                                <span className="truncate">{snippet.heading}</span>
+                              )}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                {/* New Folder Input */}
+                {isAddingFolder && (
+                  <div className="flex items-center gap-2 px-2 py-1.5">
+                    <ChevronRight className="h-4 w-4" />
+                    <FolderIcon className="h-4 w-4" />
+                    <Input
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      onKeyDown={handleFolderNameSubmit}
+                      placeholder="New folder name..."
+                      className="h-7 px-2"
+                      autoFocus
+                      onBlur={() => setIsAddingFolder(false)}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
