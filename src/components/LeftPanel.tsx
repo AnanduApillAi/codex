@@ -1,11 +1,14 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
+import { DndContext, DragEndEvent, useSensor, useSensors, PointerSensor } from '@dnd-kit/core';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileIcon, ChevronLeft, ChevronRight, ChevronDown, FolderIcon, Search, MoreVertical, Edit, Trash } from "lucide-react";
 import { getAllSnippets, getAllFolders, addSnippet, updateSnippet, deleteSnippet, renameFolder } from '@/lib/db';
 import { cn } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
+import { DraggableSnippet } from '@/components/DraggableSnippet';
+import { DroppableFolder } from '@/components/DroppableFolder';
 
 interface SnippetData {
   id?: number;
@@ -85,9 +88,18 @@ export default function LeftPanel({
   const [isRenamingFolder, setIsRenamingFolder] = useState(false);
   const [folderToRename, setFolderToRename] = useState<string | null>(null);
   const [unorganizedSnippets, setUnorganizedSnippets] = useState<SnippetData[]>([]);
+  const [selectedSnippets, setSelectedSnippets] = useState<number[]>([]);
   const minWidth = 150;
   const collapsedWidth = 48;
   const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   useEffect(() => {
     const loadData = async () => {
@@ -161,6 +173,24 @@ export default function LeftPanel({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Add useEffect for global click handler
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      // Clear selection if clicking outside of any snippet
+      if (!(e.target as HTMLElement).closest('[data-snippet-id]')) {
+        setSelectedSnippets([]);
+      }
+    };
+
+    // Add global click listener
+    window.addEventListener('click', handleGlobalClick);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('click', handleGlobalClick);
+    };
+  }, []);
+
   const startResizing = (e: React.MouseEvent) => {
     e.preventDefault();
     const startWidth = width;
@@ -203,8 +233,21 @@ export default function LeftPanel({
     setSelectedFolder(prev => folderName === prev ? null : folderName);
   };
 
-  const handleSnippetClick = (snippet: SnippetData) => {
-    onSnippetSelect(snippet);
+  const handleSnippetClick = (e: React.MouseEvent, snippet: SnippetData) => {
+    e.stopPropagation();
+    const isCtrlPressed = e.ctrlKey || e.metaKey;
+
+    if (isCtrlPressed) {
+      setSelectedSnippets(prev => {
+        const snippetId = snippet.id!;
+        return prev.includes(snippetId)
+          ? prev.filter(id => id !== snippetId)
+          : [...prev, snippetId];
+      });
+    } else {
+      setSelectedSnippets([snippet.id!]);
+      onSnippetSelect(snippet);
+    }
   };
 
   const handleNewSnippet = () => {
@@ -288,7 +331,7 @@ export default function LeftPanel({
         await updateSnippet(contextMenu.snippet.id, updatedSnippet);
         setIsRenaming(false);
         setNewSnippetName('');
-        setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
+        setContextMenu(prev => ({ ...prev, show: false }));
         
         // Fetch and update data
         const snippets = await getAllSnippets();
@@ -520,243 +563,226 @@ export default function LeftPanel({
     }
   };
 
+  // Handle drag end for single or multiple snippets
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!active) return;
+
+    try {
+      const snippetsToMove = selectedSnippets.length > 0 
+        ? selectedSnippets 
+        : [Number(active.id.toString().replace('snippet-', ''))];
+
+      for (const snippetId of snippetsToMove) {
+        const draggedSnippet = allSnippets.find(s => s.id === snippetId);
+        if (!draggedSnippet) continue;
+
+        const updatedSnippet = {
+          ...draggedSnippet,
+          folder: over ? over.id.toString().replace('folder-', '') : ''
+        };
+
+        await updateSnippet(snippetId, updatedSnippet);
+        
+        if (snippetDetails && snippetDetails.id === snippetId) {
+          onSnippetSelect(updatedSnippet);
+        }
+      }
+      
+      onUpdate();
+      toast.success(over 
+        ? `${snippetsToMove.length} snippet(s) moved successfully` 
+        : `${snippetsToMove.length} snippet(s) moved to unorganized`
+      );
+      
+      // Clear selection after successful move
+      setSelectedSnippets([]);
+    } catch (error) {
+      console.error('Error moving snippets:', error);
+      toast.error('Failed to move snippets');
+    }
+  };
+
   return (
-    <div 
-      className="relative flex h-screen"
-      style={{ width: isCollapsed ? collapsedWidth : width }}
-    >
-      <div className="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed w-[inherit] h-screen">
-        {/* Collapsed state file icon */}
-        {isCollapsed && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2">
-            <Button variant="ghost" size="icon">
-              <FileIcon className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-
-        {/* Expanded state content */}
-        <div className={`flex flex-col h-full ${isCollapsed ? 'opacity-0 invisible' : 'opacity-100 visible'}`}>
-          {/* Search bar */}
-          <div className="p-4">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search snippets..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
-
-          {/* Search Results */}
-          {searchResults.length > 0 && (
-            <div className="px-4 py-2">
-              <h3 className="text-sm font-medium mb-2">Search Results</h3>
-              <div className="space-y-1">
-                {searchResults.map((result) => (
-                  <button
-                    key={result.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSnippetClick(result);
-                    }}
-                    className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted/50 text-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      <FileIcon className="h-4 w-4" />
-                      <span className="flex-1 truncate">{result.heading}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground ml-6">
-                      {result.folder}
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <div className="border-t my-2" />
+    <div className={cn(
+      "relative border-r border-gray-200 dark:border-gray-700 h-screen transition-all duration-300",
+      isCollapsed ? "w-12" : "w-64"
+    )}>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <div className="bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed w-[inherit] h-screen">
+          {/* Collapsed state file icon */}
+          {isCollapsed && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2">
+              <Button variant="ghost" size="icon">
+                <FileIcon className="h-4 w-4" />
+              </Button>
             </div>
           )}
 
-          {/* Folders and Snippets */}
-          <div className="flex-1 overflow-auto px-4">
-            {/* Folders section */}
-            <div className="border-t pt-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold">Folders</h2>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    title="New Folder"
-                    onClick={handleNewFolder}
-                  >
-                    <div className="flex items-center">
-                      <FolderIcon className="h-3.5 w-3.5" />
-                      
-                    </div>
-                  </Button>
-                </div>
+          {/* Expanded state content */}
+          <div className={`flex flex-col h-full ${isCollapsed ? 'opacity-0 invisible' : 'opacity-100 visible'}`}>
+            {/* Search bar */}
+            <div className="p-4">
+              <div className="relative">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search snippets..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8"
+                />
               </div>
-              <div className="space-y-1">
-                {/* Unorganized Snippets - inline with folders */}
-                {unorganizedSnippets.map((snippet) => (
-                  <div key={snippet.id} className="relative">
+            </div>
+
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <div className="px-4 py-2">
+                <h3 className="text-sm font-medium mb-2">Search Results</h3>
+                <div className="space-y-1">
+                  {searchResults.map((result) => (
                     <button
-                      onContextMenu={(e) => handleSnippetContextMenu(e, snippet)}
+                      key={result.id}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (!isRenaming) {
-                          handleSnippetClick(snippet);
-                        }
+                        handleSnippetClick(e, result);
                       }}
-                      className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted/50 text-sm flex items-center gap-2"
-                    >
-                      <FileIcon className="h-4 w-4 ml-6" />
-                      {isRenaming && contextMenu.snippet?.id === snippet.id ? (
-                        <Input
-                          value={newSnippetName}
-                          onChange={(e) => setNewSnippetName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleRenameSnippet();
-                            } else if (e.key === 'Escape') {
-                              setIsRenaming(false);
-                              setNewSnippetName('');
-                              setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
-                            }
-                          }}
-                          className="h-6 px-1"
-                          autoFocus
-                          onBlur={() => {
-                            setIsRenaming(false);
-                            setNewSnippetName('');
-                            setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
-                          }}
-                        />
-                      ) : (
-                        <span className="truncate">{snippet.heading}</span>
-                      )}
-                    </button>
-                  </div>
-                ))}
-
-                {/* Folders */}
-                {folders.map((folder) => (
-                  <div key={folder.name} className="space-y-1">
-                    <button
-                      onClick={() => toggleFolder(folder.name)}
-                      onContextMenu={(e) => handleFolderContextMenu(e, folder.name)}
                       className={cn(
-                        "w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors",
-                        selectedFolder === folder.name && "bg-muted"
+                        "w-full text-left px-2 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors",
+                        selectedSnippets.includes(result.id!)
+                          ? "bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                          : "hover:bg-muted/50"
                       )}
                     >
-                      {folder.isOpen ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
-                      <FolderIcon className="h-4 w-4" />
-                      {isRenamingFolder && folderToRename === folder.name ? (
-                        <Input
-                          value={newFolderName}
-                          onChange={(e) => setNewFolderName(e.target.value)}
-                          onKeyDown={async (e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              await handleRenameFolder();
-                              setIsRenamingFolder(false);
-                              setFolderToRename(null);
-                            } else if (e.key === 'Escape') {
-                              setIsRenamingFolder(false);
-                              setFolderToRename(null);
-                              setNewFolderName('');
-                            }
-                          }}
-                          className="h-6 px-1"
-                          autoFocus
-                          onBlur={() => {
-                            setIsRenamingFolder(false);
-                            setFolderToRename(null);
-                            setNewFolderName('');
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      ) : (
-                        <span className="text-sm flex-1 text-left">{folder.name}</span>
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        {folder.snippetCount}
-                      </span>
+                      <FileIcon className="h-4 w-4" />
+                      <span className="truncate">{result.heading}</span>
                     </button>
-                    {folder.isOpen && (
-                      <div className="ml-9 border-l pl-2 space-y-1">
-                        {folder.snippets.map((snippet) => (
-                          <div key={snippet.id} className="relative">
-                            <button
-                              onContextMenu={(e) => handleSnippetContextMenu(e, snippet)}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!isRenaming) {
-                                  handleSnippetClick(snippet);
-                                }
-                              }}
-                              className="w-full text-left px-2 py-1.5 rounded-md hover:bg-muted/50 text-sm flex items-center gap-2"
-                            >
-                              <FileIcon className="h-4 w-4" />
-                              {isRenaming && contextMenu.snippet?.id === snippet.id ? (
-                                <Input
-                                  value={newSnippetName}
-                                  onChange={(e) => setNewSnippetName(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      handleRenameSnippet();
-                                    } else if (e.key === 'Escape') {
-                                      e.preventDefault();
-                                      setIsRenaming(false);
-                                      setNewSnippetName('');
-                                      setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
-                                    }
-                                  }}
-                                  className="h-6 px-1"
-                                  autoFocus
-                                  onBlur={() => {
-                                    setIsRenaming(false);
-                                    setNewSnippetName('');
-                                    setContextMenu({ show: false, position: { x: 0, y: 0 }, snippet: null });
-                                  }}
-                                />
-                              ) : (
-                                <span className="truncate">{snippet.heading}</span>
-                              )}
-                            </button>
-                          </div>
-                        ))}
+                  ))}
+                </div>
+                <div className="border-t my-2" />
+              </div>
+            )}
+
+            {/* Folders and Snippets */}
+            <div className="flex-1 overflow-auto px-4">
+              {/* Folders section */}
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold">Folders</h2>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      title="New Folder"
+                      onClick={handleNewFolder}
+                    >
+                      <div className="flex items-center">
+                        <FolderIcon className="h-3.5 w-3.5" />
+                        
                       </div>
-                    )}
+                    </Button>
                   </div>
-                ))}
-                
-                {/* New Folder Input */}
-                {isAddingFolder && (
-                  <div className="flex items-center gap-2 px-2 py-1.5">
-                    <ChevronRight className="h-4 w-4" />
-                    <FolderIcon className="h-4 w-4" />
-                    <Input
-                      value={newFolderName}
-                      onChange={(e) => setNewFolderName(e.target.value)}
-                      onKeyDown={handleFolderNameSubmit}
-                      placeholder="New folder name..."
-                      className="h-7 px-2"
-                      autoFocus
-                      onBlur={() => setIsAddingFolder(false)}
-                    />
-                  </div>
-                )}
+                </div>
+                <div className="space-y-1">
+                  {/* Unorganized Snippets */}
+                  {unorganizedSnippets.map((snippet) => (
+                    <DraggableSnippet 
+                      key={snippet.id} 
+                      id={`snippet-${snippet.id}`}
+                      isSelected={selectedSnippets.includes(snippet.id!)}
+                      selectedCount={selectedSnippets.length}
+                      heading={snippet.heading}
+                    >
+                      <button
+                        data-snippet-id={snippet.id}
+                        onContextMenu={(e) => handleSnippetContextMenu(e, snippet)}
+                        onClick={(e) => handleSnippetClick(e, snippet)}
+                        className={cn(
+                          "w-full text-left px-2 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors",
+                          selectedSnippets.includes(snippet.id!)
+                            ? "bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                            : "hover:bg-muted/50"
+                        )}
+                      >
+                        <FileIcon className="h-4 w-4" />
+                        <span className="truncate">{snippet.heading}</span>
+                      </button>
+                    </DraggableSnippet>
+                  ))}
+
+                  {/* Folders */}
+                  {folders.map((folder) => (
+                    <DroppableFolder key={folder.name} id={`folder-${folder.name}`}>
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => toggleFolder(folder.name)}
+                          onContextMenu={(e) => handleFolderContextMenu(e, folder.name)}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors",
+                            selectedFolder === folder.name && "bg-muted"
+                          )}
+                        >
+                          <ChevronRight className={cn(
+                            "h-4 w-4 transition-transform",
+                            folder.isOpen && "rotate-90"
+                          )} />
+                          <FolderIcon className="h-4 w-4" />
+                          <span className="flex-1 truncate">{folder.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {folder.snippetCount}
+                          </span>
+                        </button>
+
+                        {folder.isOpen && (
+                          <div className="ml-9 border-l pl-2 space-y-1">
+                            {folder.snippets.map((snippet) => (
+                              <DraggableSnippet 
+                                key={snippet.id} 
+                                id={`snippet-${snippet.id}`}
+                                isSelected={selectedSnippets.includes(snippet.id!)}
+                                selectedCount={selectedSnippets.length}
+                                heading={snippet.heading}
+                              >
+                                <button
+                                  data-snippet-id={snippet.id}
+                                  onContextMenu={(e) => handleSnippetContextMenu(e, snippet)}
+                                  onClick={(e) => handleSnippetClick(e, snippet)}
+                                  className={cn(
+                                    "w-full text-left px-2 py-1.5 rounded-md text-sm flex items-center gap-2 transition-colors",
+                                    selectedSnippets.includes(snippet.id!)
+                                      ? "bg-blue-500/20 text-blue-700 dark:text-blue-300"
+                                      : "hover:bg-muted/50"
+                                  )}
+                                >
+                                  <FileIcon className="h-4 w-4" />
+                                  <span className="truncate">{snippet.heading}</span>
+                                </button>
+                              </DraggableSnippet>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </DroppableFolder>
+                  ))}
+                  
+                  {/* New Folder Input */}
+                  {isAddingFolder && (
+                    <div className="flex items-center gap-2 px-2 py-1.5">
+                      <ChevronRight className="h-4 w-4" />
+                      <FolderIcon className="h-4 w-4" />
+                      <Input
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        onKeyDown={handleFolderNameSubmit}
+                        placeholder="New folder name..."
+                        className="h-7 px-2"
+                        autoFocus
+                        onBlur={() => setIsAddingFolder(false)}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -777,7 +803,7 @@ export default function LeftPanel({
             {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
-      </div>
+      </DndContext>
 
       {/* Context Menu */}
       {contextMenu.show && (

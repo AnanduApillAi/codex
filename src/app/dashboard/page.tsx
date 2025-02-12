@@ -48,6 +48,11 @@ export default function DashboardPage() {
     setSelectedFolder(folder);
   };
 
+  const handlePanelClose = () => {
+    setIsRightPanelOpen(false);
+    setSelectedSnippet(null);
+  };
+
   return (
     <main className="flex min-h-screen">
       <LeftPanel 
@@ -69,7 +74,7 @@ export default function DashboardPage() {
       </div>
       <RightPanel
         isOpen={isRightPanelOpen}
-        onClose={() => setIsRightPanelOpen(false)}
+        onClose={handlePanelClose}
         snippetDetails={selectedSnippet}
         onUpdate={handleSnippetUpdate}
         updateTrigger={updateTrigger}
