@@ -570,31 +570,35 @@ export default function LeftPanel({
     if (!active) return;
 
     try {
-      const snippetsToMove = selectedSnippets.length > 0 
-        ? selectedSnippets 
-        : [Number(active.id.toString().replace('snippet-', ''))];
+      const draggedId = Number(active.id.toString().replace('snippet-', ''));
+      // If there's no over target, it means we're dropping in the unorganized section
+      const targetFolder = over ? over.id.toString().replace('folder-', '') : '';
 
+      // If the dragged snippet is part of a selection, move all selected snippets
+      const snippetsToMove = selectedSnippets.includes(draggedId)
+        ? selectedSnippets
+        : [draggedId];
+
+      // Update each snippet's folder
       for (const snippetId of snippetsToMove) {
         const draggedSnippet = allSnippets.find(s => s.id === snippetId);
         if (!draggedSnippet) continue;
 
         const updatedSnippet = {
           ...draggedSnippet,
-          folder: over ? over.id.toString().replace('folder-', '') : ''
+          folder: targetFolder // Empty string for unorganized section
         };
 
         await updateSnippet(snippetId, updatedSnippet);
         
+        // Update the selected snippet details if necessary
         if (snippetDetails && snippetDetails.id === snippetId) {
           onSnippetSelect(updatedSnippet);
         }
       }
       
       onUpdate();
-      toast.success(over 
-        ? `${snippetsToMove.length} snippet(s) moved successfully` 
-        : `${snippetsToMove.length} snippet(s) moved to unorganized`
-      );
+      toast.success(`${snippetsToMove.length} snippet(s) moved successfully`);
       
       // Clear selection after successful move
       setSelectedSnippets([]);
@@ -686,13 +690,15 @@ export default function LeftPanel({
                 </div>
                 <div className="space-y-1">
                   {/* Unorganized Snippets */}
-                  {unorganizedSnippets.map((snippet) => (
+                  {unorganizedSnippets.map((snippet, index) => (
                     <DraggableSnippet 
                       key={snippet.id} 
                       id={`snippet-${snippet.id}`}
                       isSelected={selectedSnippets.includes(snippet.id!)}
                       selectedCount={selectedSnippets.length}
                       heading={snippet.heading}
+                      grouped={selectedSnippets.length > 1 && selectedSnippets[0] === snippet.id}
+                      selectedSnippets={selectedSnippets}
                     >
                       <button
                         data-snippet-id={snippet.id}
@@ -743,6 +749,8 @@ export default function LeftPanel({
                                 isSelected={selectedSnippets.includes(snippet.id!)}
                                 selectedCount={selectedSnippets.length}
                                 heading={snippet.heading}
+                                grouped={selectedSnippets.length > 1 && selectedSnippets[0] === snippet.id}
+                                selectedSnippets={selectedSnippets}
                               >
                                 <button
                                   data-snippet-id={snippet.id}

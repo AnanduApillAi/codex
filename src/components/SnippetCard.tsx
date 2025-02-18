@@ -1,49 +1,30 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
-import { ClipboardCopy, Edit } from 'lucide-react';
+import { ClipboardCopy } from 'lucide-react';
 import { toast } from 'sonner';
+import { SnippetDetails } from '@/types/snippets';
 
-interface Snippet {
-  title: string;
-  description: string;
-  code: string;
-  tags: string[];
-  folder: string;
-  createdAt: string;
-}
 
-interface SnippetCardProps {
-  snippet: Snippet;
-}
 
-export function SnippetCard({ snippet }: SnippetCardProps) {
-  const handleCopy = async () => {
+export function SnippetCard({ snippet }: { snippet: SnippetDetails }) {
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     await navigator.clipboard.writeText(snippet.code);
     toast.success('Copied to clipboard!');
   };
 
   return (
-    <div className="p-4 rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md">
+    <div className="p-4 rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md h-full">
       <div className="flex justify-between items-start mb-2">
-        <h3 className="font-semibold text-lg">{snippet.title}</h3>
+        <h3 className="font-semibold text-lg">{snippet.heading}</h3>
         <div className="flex">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCopy();
-            }}
+            onClick={(e) => handleCopy(e)}
             className="p-2 hover:bg-muted rounded-md"
             aria-label="Copy code"
           >
             <ClipboardCopy className="h-4 w-4" />
-          </button>
-          <button
-            className="p-2 hover:bg-muted rounded-md ml-2"
-            aria-label="Edit snippet"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Edit className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -62,7 +43,7 @@ export function SnippetCard({ snippet }: SnippetCardProps) {
         Folder: {snippet.folder}
       </div>
       <div className="text-xs text-muted-foreground">
-        {formatDistanceToNow(new Date(snippet.createdAt), { addSuffix: true })}
+        {formatDistanceToNow(new Date(snippet.createdAt || new Date()), { addSuffix: true })}
       </div>
     </div>
   );

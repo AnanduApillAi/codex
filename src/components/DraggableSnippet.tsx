@@ -1,7 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
-import { FileIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
 
 interface DraggableSnippetProps {
   id: string;
@@ -9,57 +7,67 @@ interface DraggableSnippetProps {
   isSelected: boolean;
   selectedCount: number;
   heading: string;
+  grouped?: boolean;
+  selectedSnippets?: number[];
 }
 
 export function DraggableSnippet({ 
   id, 
   children, 
-  isSelected, 
+  isSelected,
   selectedCount,
-  heading 
+  heading,
+  grouped = false,
+  selectedSnippets = []
 }: DraggableSnippetProps) {
+  const [isDragGroup, setIsDragGroup] = useState(false);
+  const [groupTransform, setGroupTransform] = useState<{ x: number, y: number } | null>(null);
+
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: id,
   });
 
-  const style = transform ? {
-    transform: CSS.Translate.toString(transform),
-  } : undefined;
+  useEffect(() => {
+    if (isDragging && selectedCount > 1) {
+      // Log all snippet elements in the document
+      const allSnippets = document.querySelectorAll('[data-selected="true"]:not([data-dragging="true"])');
+      allSnippets.forEach(snippet => snippet.style.visibility = 'hidden');
+      
+    }
+  }, [isDragging, transform, selectedCount, selectedSnippets, id]);
 
-  // If this snippet is part of a multi-selection and is being dragged
-  if (isDragging && selectedCount > 1) {
-    return (
-      <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
-        <div className="space-y-1">
-          {/* First snippet (the one being dragged) */}
-          <div className="bg-white dark:bg-gray-800 rounded-md shadow-md border border-gray-200 dark:border-gray-700 p-2">
-            <div className="flex items-center gap-2">
-              <FileIcon className="h-4 w-4" />
-              <span className="truncate text-sm">{heading}</span>
-            </div>
-          </div>
-          {/* Visual indication of additional selected snippets */}
-          <div className="bg-white dark:bg-gray-800 rounded-md shadow-md border border-gray-200 dark:border-gray-700 p-2 -mt-2 ml-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                +{selectedCount - 1} more snippets
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const currentId = Number(id.replace('snippet-', ''));
+  const shouldHide = selectedCount > 1 && 
+                    selectedSnippets?.includes(currentId) && 
+                    !isDragging &&
+                    isDragGroup;
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    position: 'relative' as const,
+    zIndex: isDragging ? 50 : undefined,
+    visibility: shouldHide ? 'hidden' : 'visible',
+    backgroundColor: (selectedSnippets?.includes(currentId) && isDragGroup && !isDragging) 
+      ? '#86efac'
+      : undefined
+  } : undefined;
 
   return (
     <div 
-      ref={setNodeRef} 
-      style={style} 
-      {...listeners} 
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
       {...attributes}
-      className={cn(isDragging && 'opacity-50')}
+      className={`
+        ${isDragging ? 'opacity-50' : ''}
+        ${isSelected ? 'relative' : ''}
+        ${isDragging && selectedCount > 1 ? 'after:content-[attr(data-count)] after:absolute after:-top-2 after:-right-2 after:bg-blue-500 after:text-white after:rounded-full after:w-5 after:h-5 after:flex after:items-center after:justify-center after:text-xs' : ''}
+      `}
+      data-dragging={isDragging ? "true" : undefined}
+      data-selected={isSelected ? "true" : undefined}
+      data-count={selectedCount}
     >
       {children}
     </div>
   );
-} 
+}

@@ -6,49 +6,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { X, Plus, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { updateSnippet, getAllFolders, addSnippet, getAllSnippets } from '@/lib/db';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from 'react-hot-toast';
-
-interface SnippetDetails {
-  id?: number;
-  heading: string;
-  description: string;
-  code: string;
-  tags: string[];
-  folder: string;
-  inactive?: boolean;
-  createdAt?: Date;
-}
+import { SnippetDetails } from '@/types/snippets';
 
 interface RightPanelProps {
   isOpen: boolean;
-  onClose: () => void;
-  snippetDetails: SnippetDetails | null;
-  onUpdate: () => void;
-  updateTrigger: number;
+  onClose:()=>void;
+  formData:SnippetDetails;
+  setFormData: (formData: SnippetDetails |((prev:SnippetDetails) => SnippetDetails)) => void;
+  updateSnippets: (formData:SnippetDetails) => void;
 }
 
-export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, updateTrigger }: RightPanelProps) {
-  const [width, setWidth] = useState(384);
-  const minWidth = 300;
-  const maxWidth = 600;
-
-  const [formData, setFormData] = useState<SnippetDetails>({
-    heading: '',
-    description: '',
-    code: '',
-    tags: [],
-    folder: '',
-    inactive: false
-  });
+export default function RightPanel({ isOpen, onClose, formData, setFormData, updateSnippets }: RightPanelProps) {
   const [newTag, setNewTag] = useState('');
   const [folders, setFolders] = useState<string[]>([]);
+
 
   // Load folders when component mounts AND when panel opens or updateTrigger changes
   useEffect(() => {
@@ -62,86 +35,13 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, 
     };
     
     loadFolders(); // Remove the isOpen condition to ensure folders are always updated
-  }, [updateTrigger]); // Remove isOpen from dependency array
-
-  // Update form data when snippetDetails changes
-  useEffect(() => {
-    if (snippetDetails) {
-      setFormData({
-        ...snippetDetails,
-        heading: snippetDetails.heading,
-        description: snippetDetails.description,
-        code: snippetDetails.code,
-        tags: snippetDetails.tags || [],
-        folder: snippetDetails.folder
-      });
-      
-      // Refresh folders list when a snippet is loaded
-      const loadFolders = async () => {
-        try {
-          const folderList = await getAllFolders();
-          setFolders(folderList);
-          // If the current folder was renamed, update the form data with the new folder name
-          if (snippetDetails.folder && !folderList.includes(snippetDetails.folder)) {
-            const updatedSnippets = await getAllSnippets();
-            const updatedSnippet = updatedSnippets.find(s => s.id === snippetDetails.id);
-            if (updatedSnippet) {
-              setFormData(prev => ({
-                ...prev,
-                folder: updatedSnippet.folder
-              }));
-            }
-          }
-        } catch (error) {
-          console.error('Error loading folders:', error);
-        }
-      };
-      loadFolders();
-    } else {
-      // Clear form data when snippetDetails is null
-      setFormData({
-        heading: '',
-        description: '',
-        code: '',
-        tags: [],
-        folder: ''
-      });
-    }
-  }, [snippetDetails, updateTrigger]); // Add updateTrigger to dependency array
-
-  const startResizing = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const startWidth = width;
-    const startX = e.pageX;
-
-    const onMouseMove = (e: MouseEvent) => {
-      const newWidth = startWidth - (e.pageX - startX);
-      if (newWidth >= minWidth && newWidth <= maxWidth) {
-        setWidth(newWidth);
-      }
-    };
-
-    const onMouseUp = () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  };
-
-  // Reset panel position when closed
-  useEffect(() => {
-    if (!isOpen) {
-      setWidth(384);
-    }
-  }, [isOpen]);
+  }, []); // Remove isOpen from dependency array
 
   const handleChange = (
     field: keyof SnippetDetails,
     value: string | string[]
   ) => {
-    setFormData(prev => ({
+    setFormData((prev: SnippetDetails) => ({
       ...prev,
       [field]: value
     }));
@@ -169,42 +69,40 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, 
 
   const handleSave = async () => {
     try {
-      if (snippetDetails?.id) {
-        // Update existing snippet
-        await updateSnippet(snippetDetails.id, {
-          ...formData,
-          id: snippetDetails.id
-        });
-      } else {
         // Add new snippet
         await addSnippet({
           ...formData,
           createdAt: new Date()
         });
+        updateSnippets(formData);
+        onClose();
       }
-      
-      onUpdate();
-      toast.success(snippetDetails?.id ? 'Snippet updated successfully' : 'Snippet added successfully');
-      onClose();
-      
-      // Refresh folders list after update
-      const updatedFolders = await getAllFolders();
-      setFolders(updatedFolders);
-    } catch (error) {
+       catch (error) {
       console.error('Error saving snippet:', error);
       toast.error('Failed to save snippet');
     }
   };
 
+  const handleUpdate = async () => {
+    try {
+      if(!formData.id){
+        await handleSave();
+      }else{
+        await updateSnippet(formData.id, formData);
+        updateSnippets(formData);
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error updating snippet:', error);
+      toast.error('Failed to update snippet');
+    }
+  };
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed right-0 top-0 h-screen z-50"
-      style={{ width: width }}
-    >
-      <div className="bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 h-full overflow-y-auto">
-        <div className="p-4">
+    <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center">
+      <div className="bg-white dark:bg-gray-800 h-[90vh] w-[500px] rounded-lg shadow-lg overflow-y-auto">
+        <div className="p-6">
           {/* Header with close button */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-semibold">Snippet Details</h2>
@@ -269,7 +167,7 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, 
                   placeholder="Type and press Enter to add tag"
                   className="flex-1"
                 />
-                <Button 
+                {/* <Button 
                   variant="outline" 
                   size="icon"
                   onClick={() => {
@@ -279,13 +177,13 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, 
                   }}
                 >
                   <Plus className="h-4 w-4" />
-                </Button>
+                </Button> */}
               </div>
             </div>
 
             <div>
               <label className="text-sm font-medium mb-1 block">Folder</label>
-              <Select
+              {/* <Select
                 value={formData.folder}
                 onValueChange={(value) => handleChange('folder', value)}
               >
@@ -301,30 +199,22 @@ export default function RightPanel({ isOpen, onClose, snippetDetails, onUpdate, 
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select>
+              </Select> */}
             </div>
 
             {/* Save Button */}
             <div className="pt-4 border-t">
               <Button 
                 className="w-full"
-                onClick={handleSave}
+                onClick={handleUpdate}
               >
-                <Save className="h-4 w-4 mr-2" />
+                <Save className="h-4 w-4 mr-2"/>
                 Save Changes
               </Button>
             </div>
           </div>
         </div>
-
-        {/* Resizer handle */}
-        <div className="absolute left-0 top-0 bottom-0 flex items-center">
-          <div
-            className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-gray-300 dark:hover:bg-gray-600"
-            onMouseDown={startResizing}
-          />
-        </div>
       </div>
     </div>
   );
-} 
+}; 
