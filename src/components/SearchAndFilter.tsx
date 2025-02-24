@@ -2,34 +2,32 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Filter, X, Plus } from 'lucide-react';
-import { getAllFolders, getAllTags } from '@/lib/db';
-
+import { getAllTags } from '@/lib/db';
+import { FilterOptions, SnippetDetails } from '@/types/snippets';
+import { useRouter } from 'next/navigation';
 interface SearchAndFilterProps{
   handleSearch:(searchTerm:string)=>void;
-  handleFilter:(filter:object)=>void;
+  handleFilter:(filter:FilterOptions)=>void;
 }
 
 export function SearchAndFilter({handleSearch,handleFilter}:SearchAndFilterProps) {
+  const router = useRouter();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filter States
-  const [selectedFolders, setSelectedFolders] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
 
   // Available options states
-  const [availableFolders, setAvailableFolders] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   useEffect(() => {
     const loadFilterOptions = async () => {
       try {
-        const folders = await getAllFolders();
         const tags = await getAllTags();
 
-        setAvailableFolders(folders);
         setAvailableTags(tags);
       } catch (error) {
         console.error('Error loading filter options:', error);
@@ -39,13 +37,6 @@ export function SearchAndFilter({handleSearch,handleFilter}:SearchAndFilterProps
     loadFilterOptions();
   }, []);
 
-  const toggleFolder = (folder: string) => {
-    setSelectedFolders(prev => 
-      prev.includes(folder) 
-        ? prev.filter(f => f !== folder)
-        : [...prev, folder]
-    );
-  };
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => 
@@ -61,6 +52,12 @@ export function SearchAndFilter({handleSearch,handleFilter}:SearchAndFilterProps
       [type]: value
     }));
   };
+
+  const handleClear = () => {
+    setSelectedTags([]);
+    setDateRange({ start: '', end: '' });
+    setSortBy('newest');
+  }
 
   // const handleApplyFilters = () => {
   //   onFilter({
@@ -109,11 +106,6 @@ export function SearchAndFilter({handleSearch,handleFilter}:SearchAndFilterProps
         >
           <Filter className="h-4 w-4" />
           Filters
-          {(selectedFolders.length > 0 || selectedTags.length > 0 || dateRange.start || dateRange.end) && (
-            <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-primary text-primary-foreground">
-              {selectedFolders.length + selectedTags.length + (dateRange.start || dateRange.end ? 1 : 0)}
-            </span>
-          )}
         </button>
 
         {isFilterOpen && (
@@ -127,101 +119,13 @@ export function SearchAndFilter({handleSearch,handleFilter}:SearchAndFilterProps
                 <X className="h-4 w-4" />
               </button>
             </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium mb-1.5 block text-muted-foreground">Folders</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {availableFolders.map((folder) => (
-                    <button
-                      key={folder}
-                      onClick={() => toggleFolder(folder)}
-                      className={`px-2 py-1 text-xs rounded-md border transition-colors ${
-                        selectedFolders.includes(folder)
-                          ? 'bg-primary text-primary-foreground'
-                          : 'hover:bg-muted'
-                      }`}
-                    >
-                      {folder}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              <div>
-                <label className="text-xs font-medium mb-1.5 block text-muted-foreground">Tags</label>
-                <div className="flex flex-wrap gap-1.5">
-                  {availableTags.map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => toggleTag(tag)}
-                      className={`px-2 py-1 text-xs rounded-md border transition-colors ${
-                        selectedTags.includes(tag)
-                          ? 'bg-primary text-primary-foreground'
-                          : 'hover:bg-muted'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex gap-4 items-start">
-                <div className="flex-1">
-                  <label className="text-xs font-medium mb-1.5 block text-muted-foreground">Date Range</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      value={dateRange.start}
-                      onChange={(e) => handleDateChange('start', e.target.value)}
-                      className="flex-1 px-2 py-1.5 text-xs rounded-md border bg-background"
-                    />
-                    <span className="text-xs text-muted-foreground self-center">to</span>
-                    <input
-                      type="date"
-                      value={dateRange.end}
-                      onChange={(e) => handleDateChange('end', e.target.value)}
-                      className="flex-1 px-2 py-1.5 text-xs rounded-md border bg-background"
-                    />
-                  </div>
-                </div>
-
-                <div className="w-32">
-                  <label className="text-xs font-medium mb-1.5 block text-muted-foreground">Sort By</label>
-                  <select 
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest')}
-                    className="w-full px-2 py-1.5 text-xs rounded-md border bg-background"
-                  >
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t mt-2">
-                <button
-                  onClick={()=>console.log('clear')}
-                  className="px-3 py-1.5 text-xs rounded-md border hover:bg-muted transition-colors"
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={()=>handleFilter({selectedFolders,selectedTags,dateRange,sortBy})}
-                  className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  Apply
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>
 
       <div className="flex justify-end">
         <button
-          onClick={() => console.log('add')}
+          onClick={() => router.push('/dashboard/playground')}
           className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />

@@ -1,14 +1,5 @@
 import { openDB, DBSchema } from 'idb';
-
-interface SnippetDetails {
-  id?: number;
-  heading: string;
-  description: string;
-  code: string;
-  tags: string[];
-  folder: string;
-  createdAt?: Date;
-}
+import { SnippetDetails } from '@/types/snippets';
 
 interface SnippetDB extends DBSchema {
   snippets: {
@@ -44,19 +35,29 @@ export async function initDB() {
         // Add initial data
         console.log("Adding initial data to the store...");
         store.put({
-          heading: "Example Snippet 1",
+          id: 1,
+          title: "Example Snippet 1",
           description: "A simple example snippet",
-          code: "console.log('Hello World');",
+          code: {
+            html: "console.log('Hello World');",
+            css: "body { background-color: #f0f0f0; }",
+            js: "console.log('Hello World');"
+          },
           tags: ["javascript", "example"],
-          folder: "Folder 1"
+          createdAt: new Date()
         });
 
         store.put({
-          heading: "Example Snippet 2",
+          id: 2,
+          title: "Example Snippet 2",
           description: "Another example snippet",
-          code: "print('Hello Python')",
-          tags: ["python", "example"],
-          folder: "Folder 1"
+          code: {
+            html: "console.log('Hello World');",
+            css: "body { background-color: #f0f0f0; }",
+            js: "console.log('Hello World');"
+          },
+          tags: ["javascript", "example"],
+          createdAt: new Date()
         });
       } else {
         console.log(`Object store ${STORE_NAME} already exists.`);
@@ -69,7 +70,7 @@ export async function initDB() {
   return db;
 }
 
-export async function getAllSnippets(): Promise<SnippetDetails[]> {
+  export async function getAllSnippets(): Promise<SnippetDetails[]> {
   try {
     console.log("Initializing DB for fetching all snippets...");
     await initDB(); // Ensure DB is initialized
@@ -83,49 +84,53 @@ export async function getAllSnippets(): Promise<SnippetDetails[]> {
   }
 }
 
+export async function getSnippetById(id: number): Promise<SnippetDetails | null> {
+  await initDB();
+  const db = await openDB<SnippetDB>(DB_NAME, 1);
+  const snippet = await db.get(STORE_NAME, id);
+  return snippet || null;
+}
+
 export async function updateSnippet(id: number, snippet: SnippetDetails): Promise<IDBValidKey> {
   await initDB();
   const db = await openDB(DB_NAME, 1);
   return db.put('snippets', {
     id: snippet.id,
-    heading: snippet.heading,
+    title: snippet.title,
     description: snippet.description,
     code: snippet.code,
     tags: snippet.tags,
-    folder: snippet.folder,
-    createdAt: snippet.createdAt || new Date()
+    createdAt: snippet.createdAt || new Date(),
+    isFavorite: snippet.isFavorite,
+    isTrash: snippet.isTrash
   });
 }
 
 export async function addSnippet(snippet: SnippetDetails): Promise<number> {
   await initDB();
   const db = await openDB<SnippetDB>(DB_NAME, 1);
-  return db.add(STORE_NAME, snippet);
+  
+  const {id, ...rest} = snippet;
+  const newSnippet = {
+    ...rest
+  };
+  
+  console.log("Adding snippet:", newSnippet);
+  return db.add(STORE_NAME, newSnippet);
 }
 
-export async function deleteSnippet(id: number): Promise<void> {
-  await initDB();
-  const db = await openDB<SnippetDB>(DB_NAME, 1);
-  return db.delete(STORE_NAME, id);
+export async function deleteSnippet(id: number): Promise<boolean> {
+    try {
+        await initDB();
+        const db = await openDB<SnippetDB>(DB_NAME, 1);
+        await db.delete(STORE_NAME, id);
+        return true;
+    } catch (error) {
+        console.error("Failed to delete snippet:", error);
+        return false;
+    }
 }
 
-export async function getAllFolders(): Promise<string[]> {
-  try {
-    await initDB();
-    const db = await openDB<SnippetDB>(DB_NAME, 1);
-    const snippets = await db.getAll(STORE_NAME);
-    
-    // Extract unique folder names and remove empty values
-    const uniqueFolders = [...new Set(snippets.map(snippet => snippet.folder))]
-      .filter(Boolean)
-      .sort();
-      
-    return uniqueFolders;
-  } catch (error) {
-    console.error("Failed to fetch folders:", error);
-    throw error;
-  }
-}
 
 export async function getAllTags(): Promise<string[]> {
   try {

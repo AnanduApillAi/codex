@@ -1,9 +1,24 @@
 export interface SnippetDetails {
   id?: number;
-  heading: string;
+  title: string;
   description: string;
-  code: string;
+  code: {
+    html: string;
+    css: string;
+    js: string;
+  };
   tags: string[];
-  folder: string;
   createdAt?: Date;
+  isTrash?: boolean;
+  isFavorite?: boolean;
 } 
+export interface FilterOptions {
+  selectedFolders: string[];
+  selectedTags: string[];
+  dateRange: {
+    start: string;
+    end: string;
+  };
+  sortBy: 'newest' | 'oldest';
+}
+

@@ -183,7 +183,7 @@ export default function RightPanel({ isOpen, onClose, formData, setFormData, upd
 
             <div>
               <label className="text-sm font-medium mb-1 block">Folder</label>
-              {/* <Select
+              <Select
                 value={formData.folder}
                 onValueChange={(value) => handleChange('folder', value)}
               >
@@ -199,7 +199,7 @@ export default function RightPanel({ isOpen, onClose, formData, setFormData, upd
                     </SelectItem>
                   ))}
                 </SelectContent>
-              </Select> */}
+              </Select>
             </div>
 
             {/* Save Button */}

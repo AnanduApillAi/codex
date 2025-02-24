@@ -1,91 +1,105 @@
-import RightPanel from '@/components/RightPanel';
 import { SnippetGrid } from '@/components/SnippetGrid';
-import { useState } from 'react';
-import { SnippetDetails } from '@/types/snippets';
+import { useEffect, useState } from 'react';
+import { SnippetDetails, FilterOptions } from '@/types/snippets';
 import { SearchAndFilter } from './SearchAndFilter';
+import { useContext } from 'react';
+import { DataContext } from '@/components/providers/dataProvider';
 
 export default function DashboardPage() {
+  
 
-    const [isOpen, setIsOpen] = useState(false);
-    const [snippets, setSnippets] = useState<SnippetDetails[]>([]);
+    const {snippets, setSnippets} = useContext<{snippets:SnippetDetails[], setSnippets:(snippets:SnippetDetails[])=>void}>(DataContext);
+
     const [filteredSnippets, setFilteredSnippets] = useState<SnippetDetails[]>([]);
-    const [formData, setFormData] = useState<SnippetDetails>({
-        id: 0,
-        heading: '',
-        description: '',
-        code: '',
-        tags: [] as string[],
-        folder: '',
-        createdAt: new Date()
+    const [searchTerm, setSearchTerm] = useState('');
+    const [activeFilters, setActiveFilters] = useState<FilterOptions>({
+        selectedFolders: [],
+        selectedTags: [],
+        dateRange: { start: '', end: '' },
+        sortBy: 'newest'
     });
-  const openPanel = ({snippet}:{snippet:SnippetDetails}) => {
-    if (snippet) {
-      setFormData({
-        id: snippet.id,
-        heading: snippet.heading,
-        description: snippet.description,
-        code: snippet.code,
-        tags: snippet.tags,
-        folder: snippet.folder,
-        createdAt: snippet.createdAt || new Date()
+
+    useEffect(()=>{
+      const nonTrashSnippets = snippets.filter(snippet => !snippet.isTrash);
+      setFilteredSnippets(nonTrashSnippets);
+    },[snippets])
+
+
+  // Combined filter and search function
+  const applyFiltersAndSearch = (
+    originalSnippets: SnippetDetails[],
+    filters: FilterOptions,
+    search: string
+  ) => {
+    // Step 1: Apply Filters
+    let result = originalSnippets;
+
+    if (filters.selectedTags.length > 0) {
+      result = result.filter(snippet =>
+        filters.selectedTags.some(tag => snippet.tags.includes(tag))
+      );
+    }
+
+    if (filters.dateRange.start && filters.dateRange.end) {
+      const startDate = new Date(filters.dateRange.start);
+      const endDate = new Date(filters.dateRange.end);
+      result = result.filter(snippet => {
+        const snippetDate = new Date(snippet.createdAt || new Date());
+        return snippetDate >= startDate && snippetDate <= endDate;
       });
     }
-    setIsOpen(true);
-  };
 
-  const closePanel = () => {
-    setIsOpen(false);
-    setFormData({
-      heading: '',
-      description: '',
-      code: '',
-      tags: [],
-      folder: '',
-      createdAt: new Date()
+    // Apply sorting
+    result = [...result].sort((a, b) => {
+      const dateA = new Date(a.createdAt || new Date()).getTime();
+      const dateB = new Date(b.createdAt || new Date()).getTime();
+      return filters.sortBy === 'newest' ? dateB - dateA : dateA - dateB;
     });
+
+    // Step 2: Apply Search
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      result = result.filter(snippet =>
+        snippet.title.toLowerCase().includes(searchLower) ||
+        snippet.description.toLowerCase().includes(searchLower) ||
+        snippet.code.html.toLowerCase().includes(searchLower) ||
+        snippet.code.css.toLowerCase().includes(searchLower) ||
+        snippet.code.js.toLowerCase().includes(searchLower) ||
+        snippet.tags.some(tag => tag.toLowerCase().includes(searchLower))
+      );
+    }
+
+    return result;
   };
 
-  const updateSnippets = (formData: SnippetDetails) => {
-    setSnippets((prevSnippets) => {
-      const snippetExists = prevSnippets.some(snippet => snippet.id === formData.id);
-      
-      if (snippetExists) {
-        return prevSnippets.map(snippet => 
-          snippet.id === formData.id ? formData : snippet
-        );
-      } else {
-        return [...prevSnippets, formData];
-      }
-    });
+  // Handler for search
+  const handleSearch = (searchTerm: string) => {
+    setSearchTerm(searchTerm);
+    const newResults = applyFiltersAndSearch(snippets, activeFilters, searchTerm);
+    setFilteredSnippets(newResults);
   };
 
-  const handleSearch = (searchTerm:string) => {
-    const searchTermLower = searchTerm.toLowerCase();
-    const filteredResults = snippets.filter(snippet =>
-      snippet.heading.toLowerCase().includes(searchTermLower) ||
-      snippet.description.toLowerCase().includes(searchTermLower) ||
-      snippet.code.toLowerCase().includes(searchTermLower) ||
-      snippet.tags.some(tag => tag.toLowerCase().includes(searchTermLower))
-    );
-    setFilteredSnippets(filteredResults);
-    console.log(filteredResults);
-  }
-
-  const handleFilter = (filter:object) => {
-    console.log(filter);
-  }
-
+  // Handler for filter
+  const handleFilter = (filters: FilterOptions) => {
+    setActiveFilters(filters);
+    const newResults = applyFiltersAndSearch(snippets, filters, searchTerm);
+    setFilteredSnippets(newResults);
+  };
 
   return (
     <main className="flex min-h-screen">
       <div className="flex-1">
         <div className="p-6">
-          <SearchAndFilter handleSearch={handleSearch} handleFilter={handleFilter}/>
-          <SnippetGrid openPanel={openPanel} snippets={snippets} setSnippets={setSnippets} displaySnippets={filteredSnippets} />
+          <SearchAndFilter 
+            handleSearch={handleSearch} 
+            handleFilter={handleFilter}
+          />
+          <SnippetGrid 
+            snippets={snippets} 
+            displaySnippets={filteredSnippets} 
+          />
         </div>
       </div>
-      <RightPanel isOpen={isOpen} onClose={closePanel} setFormData={setFormData} formData={formData} updateSnippets={updateSnippets}/>
     </main>
   );
 }
-

@@ -10,14 +10,15 @@ import { SnippetDetails } from '@/types/snippets';
 export function SnippetCard({ snippet }: { snippet: SnippetDetails }) {
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await navigator.clipboard.writeText(snippet.code);
+    const code = `${snippet.code.html}\n${snippet.code.css}\n${snippet.code.js}`;
+    await navigator.clipboard.writeText(code);
     toast.success('Copied to clipboard!');
   };
 
   return (
     <div className="p-4 rounded-lg border bg-card text-card-foreground shadow-sm transition-all hover:shadow-md h-full">
       <div className="flex justify-between items-start mb-2">
-        <h3 className="font-semibold text-lg">{snippet.heading}</h3>
+        <h3 className="font-semibold text-lg">{snippet.title}</h3>
         <div className="flex">
           <button
             onClick={(e) => handleCopy(e)}
@@ -38,9 +39,6 @@ export function SnippetCard({ snippet }: { snippet: SnippetDetails }) {
             {tag}
           </span>
         ))}
-      </div>
-      <div className="text-xs text-muted-foreground mb-1">
-        Folder: {snippet.folder}
       </div>
       <div className="text-xs text-muted-foreground">
         {formatDistanceToNow(new Date(snippet.createdAt || new Date()), { addSuffix: true })}

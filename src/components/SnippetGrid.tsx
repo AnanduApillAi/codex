@@ -1,14 +1,12 @@
 'use client';
 import { useEffect, useState, useRef } from 'react';
-import { getAllSnippets } from '@/lib/db';
 import { SnippetCard } from '@/components/SnippetCard';
 import { SnippetDetails } from '@/types/snippets';  // Create this shared type
+import { useRouter } from 'next/navigation';
 // import { FilterOptions } from './SearchAndFilter';
 
 interface snippetGridProps{
-  openPanel:({snippet}:{snippet:SnippetDetails})=>void;
   snippets:SnippetDetails[];
-  setSnippets:(snippets:SnippetDetails[])=>void;
   displaySnippets:SnippetDetails[];
 }
 
@@ -21,26 +19,9 @@ interface snippetGridProps{
 //   filterOptions: FilterOptions;
 // }
 
-export function SnippetGrid({snippets,openPanel,setSnippets,displaySnippets}: snippetGridProps) {
+export function SnippetGrid({snippets,displaySnippets}: snippetGridProps) {
   // const [filteredSnippets, setFilteredSnippets] = useState<SnippetDetails[]>([]);
-
-  useEffect(() => {
-    const loadSnippets = async () => {
-      try {
-        const data = await getAllSnippets();
-        const snippets = data
-          .map(snippet => ({
-            ...snippet,
-            createdAt: snippet.createdAt || new Date(),
-          }));
-        setSnippets(snippets);
-      } catch (error) {
-        console.error('Error loading snippets:', error);
-      }
-    };
-
-    loadSnippets();
-  }, []);
+  const router = useRouter();
 
   // useEffect(() => {
   //   let filtered = snippets;
@@ -102,43 +83,36 @@ export function SnippetGrid({snippets,openPanel,setSnippets,displaySnippets}: sn
 
   return (
     <div className="space-y-4 relative">
-      {/* Snippet Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-        
-        {displaySnippets.length>0?displaySnippets.map((snippet, index) => (
-          <div 
-          key={`${snippet.id}`}
-          onClick={() => openPanel({snippet})}
-        >
-          <SnippetCard
-            snippet={{
-              heading: snippet.heading,
-              description: snippet.description,
-              code: snippet.code,
-              tags: snippet.tags,
-              folder: snippet.folder,
-              createdAt: snippet.createdAt|| new Date(),
-            }}
-          />
-        </div>
-      ))
-        :snippets.map((snippet, index) => (
-          <div 
-            key={`${snippet.id}`}
-            onClick={() => openPanel({snippet})}
-          >
-            <SnippetCard
-              snippet={{
-                heading: snippet.heading,
-                description: snippet.description,
-                code: snippet.code,
-                tags: snippet.tags,
-                folder: snippet.folder,
-                createdAt: snippet.createdAt|| new Date(),
-              }}
-            />
+        {displaySnippets.length > 0 ? (
+          displaySnippets.map((snippet) => (
+            <div 
+              key={`${snippet.id}`}
+              onClick={() => router.push(`/dashboard/playground?snippet=${snippet.id}`)}
+            >
+              <SnippetCard
+                snippet={{
+                  title: snippet.title,
+                  description: snippet.description,
+                  code: snippet.code,
+                  tags: snippet.tags,
+                  createdAt: snippet.createdAt || new Date(),
+                }}
+              />
+            </div>
+          ))
+        ) : (
+          <div className="col-span-full text-center py-8">
+            {snippets.length === 0 ? (
+              <p className="text-muted-foreground">Loading snippets...</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-lg font-medium">No matching snippets found</p>
+                <p className="text-muted-foreground">Try adjusting your search or filters</p>
+              </div>
+            )}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
