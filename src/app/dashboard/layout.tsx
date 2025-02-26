@@ -3,6 +3,7 @@ import "../../app/globals.css";
 import { ThemeProvider } from "next-themes";
 import { Providers } from "@/components/providers";
 import { AppSidebar } from "@/components/app-sidebar";
+import { Toaster } from "@/components/ui/sonner";
 export const metadata: Metadata = {
   title: "CODEX",
   description: "CODEX",
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <Providers>
       <AppSidebar />
       {children}
+      <Toaster />
     </Providers>
     // <SidebarConfig>{children}</SidebarConfig>
   );

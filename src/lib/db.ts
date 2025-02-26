@@ -44,7 +44,9 @@ export async function initDB() {
             js: "console.log('Hello World');"
           },
           tags: ["javascript", "example"],
-          createdAt: new Date()
+          createdAt: new Date(),
+          isFavorite: false,
+          isTrash: false
         });
 
         store.put({
@@ -57,7 +59,9 @@ export async function initDB() {
             js: "console.log('Hello World');"
           },
           tags: ["javascript", "example"],
-          createdAt: new Date()
+          createdAt: new Date(),
+          isFavorite: false,
+          isTrash: false
         });
       } else {
         console.log(`Object store ${STORE_NAME} already exists.`);
@@ -106,7 +110,7 @@ export async function updateSnippet(id: number, snippet: SnippetDetails): Promis
   });
 }
 
-export async function addSnippet(snippet: SnippetDetails): Promise<number> {
+export async function addSnippet(snippet: SnippetDetails): Promise<SnippetDetails> {
   await initDB();
   const db = await openDB<SnippetDB>(DB_NAME, 1);
   
@@ -116,7 +120,13 @@ export async function addSnippet(snippet: SnippetDetails): Promise<number> {
   };
   
   console.log("Adding snippet:", newSnippet);
-  return db.add(STORE_NAME, newSnippet);
+  const newId = await db.add(STORE_NAME, newSnippet);
+  
+  // Return the complete snippet with the new ID
+  return {
+    ...newSnippet,
+    id: newId as number
+  };
 }
 
 export async function deleteSnippet(id: number): Promise<boolean> {

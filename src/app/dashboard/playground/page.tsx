@@ -20,93 +20,160 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useSearchParams } from "next/navigation";
-import { getSnippetById, updateSnippet } from "@/lib/db";
+import { getSnippetById, updateSnippet, addSnippet } from "@/lib/db";
 import { SnippetDetails } from "@/types/snippets";
 import { DataContext } from "@/components/providers/dataProvider";
 export default function Playground() {
-    const [snippet, setSnippet] = useState<SnippetDetails | null>(null);
+    const [snippet, setSnippet] = useState<SnippetDetails>(
+        {
+            title: "",
+            description: "",
+            tags: [],
+            code: {
+                html: "",
+                css: "",
+                js: ""
+            },
+            isFavorite: false,
+            isTrash: false
+        }
+    );
     const {snippets, setSnippets} = useContext(DataContext);
-    const [html, setHtml] = useState("");
-    const [css, setCss] = useState("");
-    const [js, setJs] = useState("");
     const [isPreview, setIsPreview] = useState(false);
-    const [title, setTitle] = useState("");
-    const [description, setDescription] = useState("");
-    const [tags, setTags] = useState<string[]>([]);
     const searchParams = useSearchParams();
     const snippetId = searchParams.get("snippet");
     const router = useRouter();
+    const [dialogOpen, setDialogOpen] = useState(false);
     
     useEffect(() => {
         if (snippetId) {
             const loadSnippet = async () => {
                 const snippet = await getSnippetById(parseInt(snippetId));
-                if (snippet) {
+                if(snippet){
                     setSnippet(snippet);
-                    setHtml(snippet.code.html);
-                    setCss(snippet.code.css);
-                    setJs(snippet.code.js);
-                    setTitle(snippet.title);
-                    setDescription(snippet.description);
-                    setTags(snippet.tags);
                 }
             };
             loadSnippet();
         }
+        else{
+            setSnippet({
+                title: "",
+                description: "",
+                tags: [],
+                code: {
+                    html: "",
+                    css: "",
+                    js: ""
+                },
+                isFavorite: false,
+                isTrash: false
+            });
+        }
     }, [snippetId]);
 
+    
     const handleSave = async () => {
-
-            await updateSnippet(parseInt(snippetId), {
-                title: title,
-                description: description,
-                tags: tags,
-                code: {
-                    html: html,
-                    css: css,
-                    js: js,
-                },
-                
-            });
+        if(snippetId){
+            try {
+                const response = await updateSnippet(parseInt(snippetId), {...snippet, isTrash: false});
+                if(response){
+                    setSnippets(snippets.map(s => 
+                    s.id === parseInt(snippetId) ? {...snippet, isTrash: false} : s
+                    ));
+                }
+            } catch (error) {
+                console.error(error);
+            }
+            finally{
+                setDialogOpen(false);
+            }
+        }
+        else{
+            try {
+                const newSnippet = await addSnippet(snippet);
+                if(newSnippet){
+                    setSnippets([...snippets, newSnippet]);
+                    router.push(`/dashboard/playground?snippet=${newSnippet.id}`);
+                }
+            } catch (error) {
+                console.error(error);
+            }
+            finally{
+                setDialogOpen(false);
+            }
+        }
     };
     const handleRemoveTag = (tag: string) => {
-        setTags(tags.filter((t) => t !== tag));
+        setSnippet({
+            ...snippet,
+            tags: snippet.tags.filter(t => t !== tag) || []
+        });
     };
     const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if(e.key === "Enter"){
             const tag = (e.target as HTMLInputElement).value.trim();
-            if(tag !== "" && !tags.includes(tag)){
-                setTags([...tags, tag]);
-                (e.target as HTMLInputElement).value = "";
-            }
+                if(tag !== "" && !snippet.tags.includes(tag)){
+                    setSnippet({
+                        ...snippet,
+                        tags: [...snippet.tags, tag]
+                    });
+                    (e.target as HTMLInputElement).value = "";
+                }
         }
     };
     const moveToTrash = async () => {
+        if(!snippetId || !snippet) return;
         const updatedSnippet: SnippetDetails = {
-            ...snippet!,
+            ...snippet,
+            isFavorite: false,
             isTrash: true,
         }
-        const updatedSnippetId = await updateSnippet(parseInt(snippetId!), updatedSnippet);
-        if(updatedSnippetId) {
+        setSnippet(updatedSnippet);
+        setSnippets(snippets.map(s => 
+            s.id === parseInt(snippetId) ? updatedSnippet : s
+        ));
+        try {
+            await updateSnippet(parseInt(snippetId), updatedSnippet);
+        } catch (error) {
+            console.error(error);
             setSnippets(snippets.map(s => 
-                s.id === parseInt(snippetId!) ? updatedSnippet : s
+                s.id === parseInt(snippetId) ? snippet : s
             ));
-            router.push('/dashboard');
+            setSnippet(snippet);
+        }
+        finally{
+            setDialogOpen(false);
         }
     }
     const handleFavorite = async () => {
-        const updatedSnippet: SnippetDetails = {
-            ...snippet!,
-            isFavorite: !snippet?.isFavorite,
-        }
-        const updatedSnippetId = await updateSnippet(parseInt(snippetId!), updatedSnippet);
-        if(updatedSnippetId) {
-            setSnippet(updatedSnippet);
+        if(snippetId){
+            const updatedSnippet: SnippetDetails = {
+                ...snippet,
+                isFavorite: !snippet.isFavorite,
+            }
+        setSnippet(updatedSnippet);
+        setSnippets(snippets.map(s => 
+            s.id === parseInt(snippetId) ? updatedSnippet : s
+        ));
+        try {
+            await updateSnippet(parseInt(snippetId), updatedSnippet);
+        } catch (error) {
+            console.error(error);
+            setSnippet(snippet);
             setSnippets(snippets.map(s => 
-                s.id === parseInt(snippetId!) ? updatedSnippet : s
+                s.id === parseInt(snippetId) ? snippet : s
             ));
         }
-    }   
+    }
+    else{
+        setSnippet({
+            ...snippet,
+            isFavorite: !snippet.isFavorite,
+        }); 
+    }
+    }
+    
+
     
     return (
         <div className="h-screen p-4 w-full">
@@ -138,7 +205,7 @@ export default function Playground() {
                             <Star className="h-4 w-4 mr-2" />
                         )}
                     </Button>
-                    <Dialog>
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                         <DialogTrigger asChild>
                             <Button size="sm">
                                 Save
@@ -152,15 +219,15 @@ export default function Playground() {
                             <div className="grid gap-4 py-4">
                                 <div className="grid gap-2">
                                     <Label htmlFor="name">Name</Label>
-                                    <Input type="text" id="name" placeholder="Snippet Name" value={title} onChange={(e) => setTitle(e.target.value)} />
+                                    <Input type="text" id="name" placeholder="Snippet Name" value={snippet?.title} onChange={(e) => setSnippet({...snippet!, title: e.target.value})} />
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="description">Description</Label>
-                                    <Input type="text" id="description" placeholder="Snippet Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+                                    <Input type="text" id="description" placeholder="Snippet Description" value={snippet?.description} onChange={(e) => setSnippet({...snippet!, description: e.target.value})} />
                                 </div>
                                 <Input type="text" placeholder="Snippet Tags" onKeyDown={handleAddTag} />
                                 <div className="flex flex-wrap gap-2">
-                                    {tags.map((tag, index) => (
+                                    {snippet?.tags.map((tag, index) => (
                                         <Badge 
                                         key={index} 
                                         variant="secondary"
@@ -177,8 +244,8 @@ export default function Playground() {
                             </div>
                             
                             <DialogFooter>
-                                <Button type="submit" onClick={handleSave}>Save</Button>
-                                {snippetId && <Button variant="destructive" type="submit" onClick={moveToTrash}>Move to Trash</Button>}
+                                <Button type="submit" onClick={handleSave}>{!snippet?.isTrash ? "Save" : "Save & Restore"}</Button>
+                                {snippetId && !snippet?.isTrash && <Button variant="destructive" type="submit" onClick={moveToTrash}>Move to Trash</Button>}
                             </DialogFooter>
                         </DialogContent>
                     </Dialog>
@@ -187,7 +254,7 @@ export default function Playground() {
                 <div className="h-[calc(100%-4rem)]">
                     {isPreview ? (
                         <div className="p-4 h-full">
-                            <PreviewPanel html={html} css={css} js={js} />
+                            <PreviewPanel html={snippet?.code.html || ""} css={snippet?.code.css || ""} js={snippet?.code.js || ""} />
                         </div>
                     ) : (
                         <Tabs defaultValue="html" className="p-4 h-full">
@@ -200,24 +267,24 @@ export default function Playground() {
                                 <CodePanel 
                                     title="" 
                                     language="html" 
-                                    code={html} 
-                                    setCode={setHtml} 
+                                    code={snippet?.code.html || ""} 
+                                    setCode={(code: string) => setSnippet({...snippet!, code: {...snippet!.code, html: code}})} 
                                 />
                             </TabsContent>
                             <TabsContent value="css" className="h-[calc(100%-3rem)]">
                                 <CodePanel 
                                     title="" 
                                     language="css" 
-                                    code={css} 
-                                    setCode={setCss} 
+                                    code={snippet?.code.css || ""} 
+                                    setCode={(code: string) => setSnippet({...snippet!, code: {...snippet!.code, css: code}})} 
                                 />
                             </TabsContent>
                             <TabsContent value="javascript" className="h-[calc(100%-3rem)]">
                                 <CodePanel 
                                     title="" 
                                     language="javascript" 
-                                    code={js} 
-                                    setCode={setJs} 
+                                    code={snippet?.code.js || ""} 
+                                    setCode={(code: string) => setSnippet({...snippet!, code: {...snippet!.code, js: code}})} 
                                 />
                             </TabsContent>
                         </Tabs>
