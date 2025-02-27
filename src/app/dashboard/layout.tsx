@@ -4,6 +4,7 @@ import { ThemeProvider } from "next-themes";
 import { Providers } from "@/components/providers";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Toaster } from "@/components/ui/sonner";
+import { AppSidebarInset } from "@/components/app-sidebarInset";
 export const metadata: Metadata = {
   title: "CODEX",
   description: "CODEX",
@@ -20,8 +21,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     //   <SidebarConfig>{children}</SidebarConfig>
     // </ThemeProvider>
     <Providers>
-      <AppSidebar />
-      {children}
+      
+        <AppSidebar />
+        <AppSidebarInset>
+          {children}
+        </AppSidebarInset>
       <Toaster />
     </Providers>
     // <SidebarConfig>{children}</SidebarConfig>

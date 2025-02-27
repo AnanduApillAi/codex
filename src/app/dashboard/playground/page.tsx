@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CodePanel from "@/components/playground/CodePanel";
 import PreviewPanel from "@/components/playground/previewPanel";
 import { Badge } from "@/components/ui/badge";
-import { Code2, Eye, Star, X } from "lucide-react";
+import { Code2, Eye, Star, X, Save, Trash2, ChevronLeft, Loader2 } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -23,6 +23,10 @@ import { useSearchParams } from "next/navigation";
 import { getSnippetById, updateSnippet, addSnippet } from "@/lib/db";
 import { SnippetDetails } from "@/types/snippets";
 import { DataContext } from "@/components/providers/dataProvider";
+import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { motion } from "framer-motion";
+
 export default function Playground() {
     const [snippet, setSnippet] = useState<SnippetDetails>(
         {
@@ -44,6 +48,8 @@ export default function Playground() {
     const snippetId = searchParams.get("snippet");
     const router = useRouter();
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [newTag, setNewTag] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
     
     useEffect(() => {
         if (snippetId) {
@@ -73,6 +79,8 @@ export default function Playground() {
 
     
     const handleSave = async () => {
+        setIsSaving(true);
+        
         if(snippetId){
             try {
                 const response = await updateSnippet(parseInt(snippetId), {...snippet, isTrash: false});
@@ -86,6 +94,7 @@ export default function Playground() {
             }
             finally{
                 setDialogOpen(false);
+                setIsSaving(false);
             }
         }
         else{
@@ -100,29 +109,40 @@ export default function Playground() {
             }
             finally{
                 setDialogOpen(false);
+                setIsSaving(false);
             }
         }
     };
+    
     const handleRemoveTag = (tag: string) => {
         setSnippet({
             ...snippet,
             tags: snippet.tags.filter(t => t !== tag) || []
         });
     };
-    const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if(e.key === "Enter"){
-            const tag = (e.target as HTMLInputElement).value.trim();
-                if(tag !== "" && !snippet.tags.includes(tag)){
-                    setSnippet({
-                        ...snippet,
-                        tags: [...snippet.tags, tag]
-                    });
-                    (e.target as HTMLInputElement).value = "";
-                }
+    
+    const handleAddTag = () => {
+        const tag = newTag.trim();
+        if(tag !== "" && !snippet.tags.includes(tag)){
+            setSnippet({
+                ...snippet,
+                tags: [...snippet.tags, tag]
+            });
+            setNewTag("");
         }
     };
+    
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if(e.key === "Enter"){
+            e.preventDefault();
+            handleAddTag();
+        }
+    };
+    
     const moveToTrash = async () => {
         if(!snippetId || !snippet) return;
+        setIsSaving(true);
+        
         const updatedSnippet: SnippetDetails = {
             ...snippet,
             isFavorite: false,
@@ -143,150 +163,252 @@ export default function Playground() {
         }
         finally{
             setDialogOpen(false);
+            setIsSaving(false);
         }
     }
+    
     const handleFavorite = async () => {
         if(snippetId){
             const updatedSnippet: SnippetDetails = {
                 ...snippet,
                 isFavorite: !snippet.isFavorite,
             }
-        setSnippet(updatedSnippet);
-        setSnippets(snippets.map(s => 
-            s.id === parseInt(snippetId) ? updatedSnippet : s
-        ));
-        try {
-            await updateSnippet(parseInt(snippetId), updatedSnippet);
-        } catch (error) {
-            console.error(error);
-            setSnippet(snippet);
+            setSnippet(updatedSnippet);
             setSnippets(snippets.map(s => 
-                s.id === parseInt(snippetId) ? snippet : s
+                s.id === parseInt(snippetId) ? updatedSnippet : s
             ));
+            try {
+                await updateSnippet(parseInt(snippetId), updatedSnippet);
+            } catch (error) {
+                console.error(error);
+                setSnippet(snippet);
+                setSnippets(snippets.map(s => 
+                    s.id === parseInt(snippetId) ? snippet : s
+                ));
+            }
+        }
+        else{
+            setSnippet({
+                ...snippet,
+                isFavorite: !snippet.isFavorite,
+            }); 
         }
     }
-    else{
-        setSnippet({
-            ...snippet,
-            isFavorite: !snippet.isFavorite,
-        }); 
-    }
-    }
-    
-
     
     return (
         <div className="h-screen p-4 w-full">
-            <Card className="h-full">
-                <div className="flex items-center justify-between p-4 border-b">
-                    <h2 className="text-lg font-semibold">Playground</h2>
-                    <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setIsPreview(!isPreview)}
-                    >
-                        {isPreview ? (
-                            <>
-                                <Code2 className="h-4 w-4 mr-2" />
-                                Code
-                            </>
-                        ) : (
-                            <>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Preview
-                            </>
+            <Card className="h-full flex flex-col overflow-hidden border-border">
+                <div className="flex items-center justify-between p-4 border-b bg-card">
+                    <div className="flex items-center gap-3">
+                        <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => router.push('/dashboard')}
+                            className="rounded-full"
+                        >
+                            <ChevronLeft className="h-5 w-5" />
+                        </Button>
+                        <h2 className="font-semibold text-lg">
+                            {snippet.title || "Untitled Snippet"}
+                        </h2>
+                        {snippet.isFavorite && (
+                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                         )}
-                    </Button>
+                    </div>
                     
-                    <Button size="sm" variant="outline" onClick={handleFavorite}>
-                        {snippet?.isFavorite ? (
-                            <Star className="h-4 w-4 mr-2" fill="yellow" />
-                        ) : (
-                            <Star className="h-4 w-4 mr-2" />
-                        )}
-                    </Button>
-                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="sm">
-                                Save
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Edit Snippet</DialogTitle>
-                                <DialogDescription>Add details to your snippet</DialogDescription>
-                            </DialogHeader>   
-                            <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="name">Name</Label>
-                                    <Input type="text" id="name" placeholder="Snippet Name" value={snippet?.title} onChange={(e) => setSnippet({...snippet!, title: e.target.value})} />
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="description">Description</Label>
-                                    <Input type="text" id="description" placeholder="Snippet Description" value={snippet?.description} onChange={(e) => setSnippet({...snippet!, description: e.target.value})} />
-                                </div>
-                                <Input type="text" placeholder="Snippet Tags" onKeyDown={handleAddTag} />
-                                <div className="flex flex-wrap gap-2">
-                                    {snippet?.tags.map((tag, index) => (
-                                        <Badge 
-                                        key={index} 
-                                        variant="secondary"
-                                        className="flex items-center gap-1"
-                                      >
-                                        {tag}
-                                        <X 
-                                          className="h-3 w-3 cursor-pointer hover:text-red-500" 
-                                          onClick={() => handleRemoveTag(tag)}
+                    <div className="flex items-center gap-2">
+                        <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setIsPreview(!isPreview)}
+                            className="gap-1.5"
+                        >
+                            {isPreview ? (
+                                <>
+                                    <Code2 className="h-4 w-4" />
+                                    Code
+                                </>
+                            ) : (
+                                <>
+                                    <Eye className="h-4 w-4" />
+                                    Preview
+                                </>
+                            )}
+                        </Button>
+                        
+                        <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={handleFavorite}
+                            className="gap-1.5"
+                        >
+                            <Star className={`h-4 w-4 ${snippet.isFavorite ? "fill-yellow-400 text-yellow-400" : ""}`} />
+                            {snippet.isFavorite ? "Favorited" : "Favorite"}
+                        </Button>
+                        
+                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm" className="gap-1.5">
+                                    <Save className="h-4 w-4" />
+                                    Save
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle>Save Snippet</DialogTitle>
+                                    <DialogDescription>
+                                        Add details to your code snippet for better organization.
+                                    </DialogDescription>
+                                </DialogHeader>   
+                                <div className="grid gap-4 py-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="name">Title</Label>
+                                        <Input 
+                                            type="text" 
+                                            id="name" 
+                                            placeholder="My Awesome Snippet" 
+                                            value={snippet?.title} 
+                                            onChange={(e) => setSnippet({...snippet!, title: e.target.value})} 
                                         />
-                                      </Badge>
-                                    ))}
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="description">Description</Label>
+                                        <Textarea 
+                                            id="description" 
+                                            placeholder="A brief description of what this snippet does" 
+                                            value={snippet?.description} 
+                                            onChange={(e) => setSnippet({...snippet!, description: e.target.value})}
+                                            className="resize-none"
+                                            rows={3}
+                                        />
+                                    </div>
+                                    
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="tags">Tags</Label>
+                                        <div className="flex gap-2">
+                                            <Input 
+                                                type="text" 
+                                                id="tags" 
+                                                placeholder="Add a tag" 
+                                                value={newTag}
+                                                onChange={(e) => setNewTag(e.target.value)}
+                                                onKeyDown={handleKeyDown}
+                                            />
+                                            <Button 
+                                                type="button" 
+                                                variant="secondary" 
+                                                onClick={handleAddTag}
+                                            >
+                                                Add
+                                            </Button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {snippet?.tags.length === 0 && (
+                                                <p className="text-sm text-muted-foreground">No tags added yet</p>
+                                            )}
+                                            {snippet?.tags.map((tag, index) => (
+                                                <Badge 
+                                                    key={index} 
+                                                    variant="secondary"
+                                                    className="flex items-center gap-1 px-2 py-1"
+                                                >
+                                                    {tag}
+                                                    <X 
+                                                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                                                        onClick={() => handleRemoveTag(tag)}
+                                                    />
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <DialogFooter>
-                                <Button type="submit" onClick={handleSave}>{!snippet?.isTrash ? "Save" : "Save & Restore"}</Button>
-                                {snippetId && !snippet?.isTrash && <Button variant="destructive" type="submit" onClick={moveToTrash}>Move to Trash</Button>}
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
+                                
+                                <DialogFooter className="flex items-center justify-between sm:justify-between">
+                                    {snippetId && !snippet?.isTrash && (
+                                        <Button 
+                                            variant="outline" 
+                                            type="button" 
+                                            onClick={moveToTrash}
+                                            className="gap-1.5"
+                                            disabled={isSaving}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Move to Trash
+                                        </Button>
+                                    )}
+                                    <Button 
+                                        type="submit" 
+                                        onClick={handleSave}
+                                        disabled={isSaving}
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            <>Save</>
+                                        )}
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </div>
                 
-                <div className="h-[calc(100%-4rem)]">
+                <div className="flex-1 overflow-hidden">
                     {isPreview ? (
                         <div className="p-4 h-full">
-                            <PreviewPanel html={snippet?.code.html || ""} css={snippet?.code.css || ""} js={snippet?.code.js || ""} />
+                            <PreviewPanel 
+                                html={snippet?.code.html || ""} 
+                                css={snippet?.code.css || ""} 
+                                js={snippet?.code.js || ""} 
+                            />
                         </div>
                     ) : (
-                        <Tabs defaultValue="html" className="p-4 h-full">
-                            <TabsList>
-                                <TabsTrigger value="html">HTML</TabsTrigger>
-                                <TabsTrigger value="css">CSS</TabsTrigger>
-                                <TabsTrigger value="javascript">JavaScript</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="html" className="h-[calc(100%-3rem)]">
-                                <CodePanel 
-                                    title="" 
-                                    language="html" 
-                                    code={snippet?.code.html || ""} 
-                                    setCode={(code: string) => setSnippet({...snippet!, code: {...snippet!.code, html: code}})} 
-                                />
-                            </TabsContent>
-                            <TabsContent value="css" className="h-[calc(100%-3rem)]">
-                                <CodePanel 
-                                    title="" 
-                                    language="css" 
-                                    code={snippet?.code.css || ""} 
-                                    setCode={(code: string) => setSnippet({...snippet!, code: {...snippet!.code, css: code}})} 
-                                />
-                            </TabsContent>
-                            <TabsContent value="javascript" className="h-[calc(100%-3rem)]">
-                                <CodePanel 
-                                    title="" 
-                                    language="javascript" 
-                                    code={snippet?.code.js || ""} 
-                                    setCode={(code: string) => setSnippet({...snippet!, code: {...snippet!.code, js: code}})} 
-                                />
-                            </TabsContent>
+                        <Tabs defaultValue="html" className="h-full flex flex-col">
+                            <div className="px-4 pt-2">
+                                <TabsList className="w-full justify-start">
+                                    <TabsTrigger value="html" className="flex items-center gap-1.5">
+                                        <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                                        HTML
+                                    </TabsTrigger>
+                                    <TabsTrigger value="css" className="flex items-center gap-1.5">
+                                        <span className="h-2 w-2 rounded-full bg-pink-500"></span>
+                                        CSS
+                                    </TabsTrigger>
+                                    <TabsTrigger value="javascript" className="flex items-center gap-1.5">
+                                        <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
+                                        JavaScript
+                                    </TabsTrigger>
+                                </TabsList>
+                            </div>
+                            <div className="flex-1 p-4 pt-2">
+                                <TabsContent value="html" className="h-full m-0 mt-0 p-0">
+                                    <CodePanel 
+                                        title="" 
+                                        language="html" 
+                                        code={snippet?.code.html || ""} 
+                                        setCode={(code: string) => setSnippet({...snippet!, code: {...snippet!.code, html: code}})} 
+                                    />
+                                </TabsContent>
+                                <TabsContent value="css" className="h-full m-0 mt-0 p-0">
+                                    <CodePanel 
+                                        title="" 
+                                        language="css" 
+                                        code={snippet?.code.css || ""} 
+                                        setCode={(code: string) => setSnippet({...snippet!, code: {...snippet!.code, css: code}})} 
+                                    />
+                                </TabsContent>
+                                <TabsContent value="javascript" className="h-full m-0 mt-0 p-0">
+                                    <CodePanel 
+                                        title="" 
+                                        language="javascript" 
+                                        code={snippet?.code.js || ""} 
+                                        setCode={(code: string) => setSnippet({...snippet!, code: {...snippet!.code, js: code}})} 
+                                    />
+                                </TabsContent>
+                            </div>
                         </Tabs>
                     )}
                 </div>

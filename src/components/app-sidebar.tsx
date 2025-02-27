@@ -26,6 +26,11 @@ import {
   SquareTerminal,
   Star,
   Trash2,
+  Home,
+  FileCode,
+  Code2,
+  Search,
+  Loader2,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -65,11 +70,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DataContext } from "./providers/dataProvider";
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useState } from "react";
 import { SnippetDetails } from "@/types/snippets";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { deleteSnippet, updateSnippet } from "@/lib/db";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Separator } from "./ui/separator";
+import { motion } from "framer-motion";
+
 // This is sample data.
 const data = {
   user: {
@@ -200,26 +209,79 @@ const data = {
   ],
 };
 
-
-
 export function AppSidebar() {
-  const [activeTeam, setActiveTeam] = React.useState(data.teams[0]);
   const { snippets, setSnippets } = useContext(DataContext);
-  const [favorites, setFavorites] = React.useState<SnippetDetails[]>([]);
-  const [trash, setTrash] = React.useState<SnippetDetails[]>([]);
-  const [dialogOpen, setDialogOpen] = React.useState(false);   
+  const [favorites, setFavorites] = useState<SnippetDetails[]>([]);
+  const [regularSnippets, setRegularSnippets] = useState<SnippetDetails[]>([]);
+  const [trash, setTrash] = useState<SnippetDetails[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [snippetToDelete, setSnippetToDelete] = useState<SnippetDetails | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [favoritesOpen, setFavoritesOpen] = useState(true);
+  const [snippetsOpen, setSnippetsOpen] = useState(true);
+  const [trashOpen, setTrashOpen] = useState(false);
+
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentSnippetId = searchParams.get("snippet");
+
+  const isActive = (id: number | undefined) => {
+    return pathname.includes('/dashboard/playground') && currentSnippetId === id?.toString();
+  };
 
   useEffect(() => {
-    setFavorites(snippets.filter((snippet) => snippet.isFavorite));
+    setFavorites(snippets.filter((snippet) => snippet.isFavorite && !snippet.isTrash));
+    setRegularSnippets(snippets.filter((snippet) => !snippet.isFavorite && !snippet.isTrash));
     setTrash(snippets.filter((snippet) => snippet.isTrash));
   }, [snippets]);
 
-  const handleRestoreSnippet = async (snippet: SnippetDetails) => {
-    const updatedSnippet = snippets.map((s) => s.id === snippet.id ? { ...s, isTrash: false } : s);
-    setSnippets(updatedSnippet);
+  const handleRestoreSnippet = async (snippet: SnippetDetails, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updatedSnippet = { ...snippet, isTrash: false };
+    setSnippets(snippets.map((s) => s.id === snippet.id ? updatedSnippet : s));
     try {
-      await updateSnippet(snippet.id!, { ...snippet, isTrash: false });
+      await updateSnippet(snippet.id!, updatedSnippet);
+    } catch (error) {
+      console.error(error);
+      setSnippets(snippets.map(s => s.id === snippet.id ? snippet : s));
+    }
+  };
+
+  const handleDeleteSnippet = async () => {
+    if (!snippetToDelete) return;
+
+    setIsDeleting(true);
+    setSnippets(snippets.filter((s) => s.id !== snippetToDelete.id));
+
+    try {
+      await deleteSnippet(snippetToDelete.id!);
+      if (isActive(snippetToDelete.id)) {
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      console.error(error);
+      setSnippets([...snippets]);
+    } finally {
+      setDialogOpen(false);
+      setSnippetToDelete(null);
+      setIsDeleting(false);
+    }
+  };
+
+  const confirmDelete = (snippet: SnippetDetails, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSnippetToDelete(snippet);
+    setDialogOpen(true);
+  };
+
+  const addToFavorites = async (snippet: SnippetDetails, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    const updatedSnippet = { ...snippet, isFavorite: true };
+    setSnippets(snippets.map(s => s.id === snippet.id ? updatedSnippet : s));
+    try {
+      await updateSnippet(snippet.id!, updatedSnippet);
       
     } catch (error) {
       console.error(error);
@@ -227,303 +289,319 @@ export function AppSidebar() {
     }
   };
 
-  const handleDeleteSnippet = async (snippet: SnippetDetails) => {
-    setSnippets(snippets.filter((s) => s.id !== snippet.id));
+  const removeFromFavorites = async (snippet: SnippetDetails, e: React.MouseEvent) => {
+    console.log("Removing from favorites");
+    e.stopPropagation();
+    const updatedSnippet = { ...snippet, isFavorite: false };
+    setSnippets(snippets.map(s => s.id === snippet.id ? updatedSnippet : s));
     try {
-      await deleteSnippet(snippet.id!);
+      await updateSnippet(snippet.id!, updatedSnippet);
     } catch (error) {
       console.error(error);
-      setSnippets(snippets.filter((s) => s.id === snippet.id));
-    }
-    finally{
-      setDialogOpen(false);
+      setSnippets(snippets.map(s => s.id === snippet.id ? snippet : s));
     }
   };
-  const addToFavorites = async (snippet: SnippetDetails) => {
-    setSnippets(snippets.map(s => s.id === snippet.id ? { ...s, isFavorite: true } : s));
-    try {
-      await updateSnippet(snippet.id!, { ...snippet, isFavorite: true });
-    } catch (error) {
-      console.error(error);
-      setSnippets(snippets.map(s => s.id === snippet.id ? snippet : s));
-    }
-  }
 
-  const removeFromFavorites = async (snippet: SnippetDetails) => {
-    setSnippets(snippets.map(s => s.id === snippet.id ? { ...s, isFavorite: false } : s));
+  const moveToTrash = async (snippet: SnippetDetails, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updatedSnippet = { ...snippet, isFavorite: false, isTrash: true };
+    setSnippets(snippets.map(s => s.id === snippet.id ? updatedSnippet : s));
     try {
-      await updateSnippet(snippet.id!, { ...snippet, isFavorite: false });   
-      } catch (error) {
+      await updateSnippet(snippet.id!, updatedSnippet);
+      if (isActive(snippet.id)) {
+        router.push('/dashboard');
+      }
+    } catch (error) {
       console.error(error);
       setSnippets(snippets.map(s => s.id === snippet.id ? snippet : s));
     }
-  }
-  const moveToTrash = async (snippet: SnippetDetails) => {
-    
-    setSnippets(snippets.map(s => s.id === snippet.id ? { ...s, isFavorite: false, isTrash: true } : s));
-    try {
-      await updateSnippet(snippet.id!, { ...snippet, isFavorite: false, isTrash: true });
-    } catch (error) {
-      console.error(error); 
-      setSnippets(snippets.map(s => s.id === snippet.id ? snippet : s));
+  };
+
+  // Add this state to track sidebar collapse state
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Add this effect to handle sidebar state changes
+  useEffect(() => {
+    const handleSidebarStateChange = () => {
+      // Check if sidebar is collapsed by looking at a data attribute on the sidebar element
+      const sidebarElement = document.querySelector('[data-sidebar-collapsed]');
+      setIsSidebarCollapsed(sidebarElement?.getAttribute('data-sidebar-collapsed') === 'true');
+    };
+
+    // Initial check
+    handleSidebarStateChange();
+
+    // Set up mutation observer to detect sidebar state changes
+    const observer = new MutationObserver(handleSidebarStateChange);
+    const sidebar = document.querySelector('[data-sidebar]');
+
+    if (sidebar) {
+      observer.observe(sidebar, {
+        attributes: true,
+        attributeFilter: ['data-sidebar-collapsed']
+      });
     }
-  }
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <>
       <Sidebar collapsible="icon">
-        <SidebarHeader className="flex justify-between items-end">
-          <Tooltip delayDuration={500}>
-            <TooltipTrigger asChild>
-              <SidebarTrigger className="-ml-1" />
-            </TooltipTrigger>
-            <TooltipContent side="bottom" align="start">
-              Toggle Sidebar <kbd className="ml-2">⌘+b</kbd>
-            </TooltipContent>
-          </Tooltip>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarMenu className="flex flex-col gap-4">
+        <SidebarHeader className="relative">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              >
+                <span className="font-semibold text-lg">
+                  CodEX
+                </span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
 
+          
+        </SidebarHeader>
+
+        <SidebarContent>
+          <SidebarGroup >
+            <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <SquareTerminal />
-                  <span>Playground</span>
+                <SidebarMenuButton
+                  asChild
+                  className={`w-full justify-start ${pathname === '/dashboard' ? 'bg-accent text-accent-foreground' : ''}`}
+                >
+                  <button onClick={() => router.push('/dashboard')}>
+                    <Home className="h-4 w-4" />
+                    <span>Dashboard</span>
+                  </button>
                 </SidebarMenuButton>
               </SidebarMenuItem>
 
-              <Collapsible className="group/collapsible">
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton>
-                      <SquareTerminal />
-                      <span>Snippets</span>
-                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {/* Favorites Section */}
-                    {favorites.length > 0 && (
-                      <>
-                        <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                          Favorites
-                        </div>
-                        {favorites.map((item, index) => (
-                          <SidebarMenuItem key={`fav-${index}`}>
-                            <SidebarMenuSubButton 
-                              className="flex items-center justify-between w-full cursor-pointer"
-                              onClick={() => router.push(`/dashboard/playground?snippet=${item.id}`)}
-                            >
-                              <div className="flex items-center gap-1">
-                                <Star className="h-2 w-2" />
-                                <span>{item.title}</span>
-                              </div>
-                            </SidebarMenuSubButton>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <SidebarMenuAction>
-                                  <MoreVertical className="h-4 w-4" />
-                                  <span className="sr-only">More</span>
-                                </SidebarMenuAction>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                className="w-48 rounded-lg"
-                                side="bottom"
-                                align="end"
-                              >
-                                <DropdownMenuItem onClick={() => removeFromFavorites(item)}>
-                                  <Forward className="text-muted-foreground" />
-                                  <span>Remove from favorites</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => moveToTrash(item)}>
-                                  <Trash2 className="text-muted-foreground" />
-                                  <span>Move to Trash</span>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </SidebarMenuItem>
-                        ))}
-                        
-                        {/* Divider between sections */}
-                        {snippets.filter(s => !s.isFavorite && !s.isTrash).length > 0 && (
-                          <div className="mx-3 my-2 h-px bg-border"></div>
-                        )}
-                      </>
-                    )}
-                    
-                    {/* Regular Snippets Section */}
-                    {snippets.filter(s => !s.isFavorite && !s.isTrash).length > 0 && (
-                      <>
-                        <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                          All Snippets
-                        </div>
-                        {snippets.filter(s => !s.isFavorite && !s.isTrash).map((item, index) => (
-                          <SidebarMenuItem key={`reg-${index}`}>
-                            <SidebarMenuSubButton 
-                              className="flex items-center justify-between w-full cursor-pointer"
-                              onClick={() => router.push(`/dashboard/playground?snippet=${item.id}`)}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span>{item.title}</span>
-                              </div>
-                            </SidebarMenuSubButton>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <SidebarMenuAction>
-                                  <MoreVertical className="h-4 w-4" />
-                                  <span className="sr-only">More</span>
-                                </SidebarMenuAction>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                className="w-48 rounded-lg"
-                                side="bottom"
-                                align="end"
-                              >
-                                <DropdownMenuItem onClick={() => addToFavorites(item)}>
-                                  <Star className="text-muted-foreground" />
-                                  <span>Add to Favorites</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => moveToTrash(item)}>
-                                  <Trash2 className="text-muted-foreground" />
-                                  <span>Move to Trash</span>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </SidebarMenuItem>
-                        ))}
-                      </>
-                    )}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </Collapsible>
-
-
-
-              <Collapsible className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton>
-                      <SquareTerminal />
-                      <span>Trash</span>
-                      <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                </SidebarMenuItem>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                  {trash?.map((item, index) => (
-                      <SidebarMenuItem key={index}>
-                        <SidebarMenuSubButton 
-                          className="flex items-center justify-between w-full cursor-pointer"
-                          onClick={() => router.push(`/dashboard/playground?snippet=${item.id}`)}
-                        >
-                          <span>{item.title}</span>
-                        </SidebarMenuSubButton>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild  >
-                            <SidebarMenuAction>
-                              <MoreVertical className="h-4 w-4" />
-                              <span className="sr-only">More</span>
-                            </SidebarMenuAction>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            className="w-48 rounded-lg"
-                            side="bottom"
-                            align="end"
-                          >
-                            <DropdownMenuItem onClick={() => handleRestoreSnippet(item)}>
-                              <Forward className="text-muted-foreground" />
-                              <span>Restore Snippet</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem >
-                              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                                <DialogTrigger asChild>
-                                    <DropdownMenuItem 
-                                        onSelect={(e) => e.preventDefault()}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <Forward className="text-muted-foreground" />
-                                        <span>Delete Permanently</span>
-                                    </DropdownMenuItem>
-                                </DialogTrigger>
-                                <DialogContent onClick={(e) => e.stopPropagation()}>
-                                    <DialogHeader>
-                                        <DialogTitle>Delete Snippet</DialogTitle>
-                                        <DialogDescription>
-                                            Are you sure you want to delete this snippet?
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <DialogFooter>
-                                        <Button variant="destructive" onClick={() => handleDeleteSnippet(item)}>yes</Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                              </Dialog>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </Collapsible>
-
-
-
-
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  className={pathname === '/dashboard/playground' && !currentSnippetId ? 'bg-accent text-accent-foreground' : ''}
+                >
+                  <button onClick={() => router.push('/dashboard/playground')} className="w-full">
+                    <FileCode className="h-4 w-4" />
+                    <span>New Snippet</span>
+                  </button>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
-          <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-            <SidebarGroupLabel>Projects</SidebarGroupLabel>
-            <SidebarMenu>
-              {data.projects.map((item) => (
-                <SidebarMenuItem key={item.name}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.name}</span>
-                    </a>
-                  </SidebarMenuButton>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <SidebarMenuAction showOnHover>
-                        <MoreHorizontal />
-                        <span className="sr-only">More</span>
-                      </SidebarMenuAction>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      className="w-48 rounded-lg"
-                      side="bottom"
-                      align="end"
-                    >
-                      <DropdownMenuItem>
-                        <Folder className="text-muted-foreground" />
-                        <span>View Project</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Forward className="text-muted-foreground" />
-                        <span>Share Project</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <Trash2 className="text-muted-foreground" />
-                        <span>Delete Project</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+
+          <Separator className="my-2" />
+
+          <SidebarGroup >
+
+            <SidebarGroupLabel>Your Snippets</SidebarGroupLabel>
+
+
+            <SidebarMenu >
+              <Collapsible
+                asChild
+                // onOpenChange={setFavoritesOpen} 
+                // className="w-full"
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip={"Favorites"}>
+                      <Star className="h-4 w-4 text-yellow-400" />
+                      <span>Favorites</span>
+                      {favorites.length > 0 && (
+                        <Badge variant="secondary" className="ml-auto">
+                          {favorites.length}
+                        </Badge>
+                      )}
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent className="pt-1 pb-2 transition-opacity duration-200">
+                    <SidebarMenuSub>
+
+
+                      {favorites.length === 0 ? (
+                        <p className="text-xs text-muted-foreground px-9 py-2">No favorites yet</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {favorites.map((snippet) => (
+                            <SidebarMenuSubItem key={snippet.id}>
+                              <SidebarMenuSubButton asChild>
+                                <motion.div
+
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className={`flex items-center justify-between px-9 py-1.5 text-sm rounded-md ${isActive(snippet.id) ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
+                                    } transition-colors cursor-pointer group`}
+                                  onClick={() => router.push(`/dashboard/playground?snippet=${snippet.id}`)}
+                                >
+                                  <span className="truncate">{snippet.title || 'Untitled Snippet'}</span>
+
+                                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={(e) => removeFromFavorites(snippet, e)}
+                                      className="p-1 rounded-md hover:bg-background"
+                                    >
+                                      <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => moveToTrash(snippet, e)}
+                                      className="p-1 rounded-md hover:bg-background"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+
+                          ))}
+                        </div>
+                      )}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
                 </SidebarMenuItem>
-              ))}
-              <SidebarMenuItem>
-                <SidebarMenuButton className="text-sidebar-foreground/70">
-                  <MoreHorizontal className="text-sidebar-foreground/70" />
-                  <span>More</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+
+              </Collapsible>
+
+              <Collapsible
+                asChild
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="All Snippets">
+                      <Folder className="h-4 w-4" />
+                      <span>All Snippets</span>
+                      {snippets.length > 0 && (
+                        <Badge variant="secondary" className="ml-auto">
+                          {snippets.length}
+                        </Badge>
+                      )}
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent className="pt-1 pb-2 transition-opacity duration-200">
+                    <SidebarMenuSub>
+                      {snippets.length === 0 ? (
+                        <p className="text-xs text-muted-foreground px-9 py-2">No snippets yet</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {snippets.map((snippet) => (
+                            <SidebarMenuSubItem key={snippet.id}>
+                              <SidebarMenuSubButton asChild>
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className={`flex items-center justify-between px-9 py-1.5 text-sm rounded-md ${isActive(snippet.id) ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'} transition-colors cursor-pointer group`}
+                                  onClick={() => router.push(`/dashboard/playground?snippet=${snippet.id}`)}
+                                >
+                                  <span className="truncate">{snippet.title || 'Untitled Snippet'}</span>
+                                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {snippet.isFavorite ? (
+                                      <button
+                                        onClick={(e) => removeFromFavorites(snippet, e)}
+                                        className="p-1 rounded-md hover:bg-background"
+                                      >
+                                        <Star className="h-3.5 w-3.5 text-yellow-400 fill-yellow-400" />
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => addToFavorites(snippet, e)}
+                                        className="p-1 rounded-md hover:bg-background"
+                                      >
+                                        <Star className="h-3.5 w-3.5 text-muted-foreground hover:text-yellow-400" />
+                                      </button>
+                                    )}
+                                    
+                                    <button
+                                      onClick={(e) => moveToTrash(snippet, e)}
+                                      className="p-1 rounded-md hover:bg-background"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </div>
+                      )}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              <Collapsible
+                asChild
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton tooltip="Trash">
+                      <Trash2 className="h-4 w-4" />
+                      <span>Trash</span>
+                      {trash.length > 0 && (
+                        <Badge variant="secondary" className="ml-auto">
+                          {trash.length}
+                        </Badge>
+                      )}
+                      <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent className="pt-1 pb-2 transition-opacity duration-200">
+                    <SidebarMenuSub>
+                      {trash.length === 0 ? (
+                        <p className="text-xs text-muted-foreground px-9 py-2">Trash is empty</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {trash.map((snippet) => (
+                            <SidebarMenuSubItem key={snippet.id}>
+                              <SidebarMenuSubButton asChild>
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className={`flex items-center justify-between px-9 py-1.5 text-sm rounded-md ${isActive(snippet.id) ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'} transition-colors cursor-pointer group`}
+                                  onClick={() => router.push(`/dashboard/playground?snippet=${snippet.id}`)}
+                                >
+                                  <span className="truncate">{snippet.title || 'Untitled Snippet'}</span>
+                                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={(e) => handleRestoreSnippet(snippet, e)}
+                                      className="p-1 rounded-md hover:bg-background"
+                                    >
+                                      <Forward className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => confirmDelete(snippet, e)}
+                                      className="p-1 rounded-md hover:bg-background"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                                    </button>
+                                  </div>
+                                </motion.div>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </div>
+                      )}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
+
         <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -535,17 +613,17 @@ export function AppSidebar() {
                   >
                     <Avatar className="h-8 w-8 rounded-lg">
                       <AvatarImage
-                        src={data.user.avatar}
-                        alt={data.user.name}
+                        src="/avatars/shadcn.jpg"
+                        alt="User"
                       />
-                      <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                      <AvatarFallback className="rounded-lg">US</AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-semibold">
-                        {data.user.name}
+                        User
                       </span>
                       <span className="truncate text-xs">
-                        {data.user.email}
+                        user@example.com
                       </span>
                     </div>
                     <ChevronsUpDown className="ml-auto size-4" />
@@ -561,19 +639,19 @@ export function AppSidebar() {
                     <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                       <Avatar className="h-8 w-8 rounded-lg">
                         <AvatarImage
-                          src={data.user.avatar}
-                          alt={data.user.name}
+                          src="/avatars/shadcn.jpg"
+                          alt="User"
                         />
                         <AvatarFallback className="rounded-lg">
-                          CN
+                          US
                         </AvatarFallback>
                       </Avatar>
                       <div className="grid flex-1 text-left text-sm leading-tight">
                         <span className="truncate font-semibold">
-                          {data.user.name}
+                          User
                         </span>
                         <span className="truncate text-xs">
-                          {data.user.email}
+                          user@example.com
                         </span>
                       </div>
                     </div>
@@ -581,28 +659,28 @@ export function AppSidebar() {
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem>
-                      <Sparkles />
+                      <Sparkles className="mr-2 h-4 w-4" />
                       Upgrade to Pro
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
                     <DropdownMenuItem>
-                      <BadgeCheck />
+                      <BadgeCheck className="mr-2 h-4 w-4" />
                       Account
                     </DropdownMenuItem>
                     <DropdownMenuItem>
-                      <CreditCard />
+                      <CreditCard className="mr-2 h-4 w-4" />
                       Billing
                     </DropdownMenuItem>
                     <DropdownMenuItem>
-                      <Bell />
+                      <Bell className="mr-2 h-4 w-4" />
                       Notifications
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem>
-                    <LogOut />
+                    <LogOut className="mr-2 h-4 w-4" />
                     Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -610,8 +688,49 @@ export function AppSidebar() {
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>
+
         <SidebarRail />
       </Sidebar>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Snippet</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete this snippet? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteSnippet}
+              disabled={isDeleting}
+              className="gap-2"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Delete Permanently
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+
+

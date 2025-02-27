@@ -3,6 +3,8 @@ import { useEffect, useState, useRef } from 'react';
 import { SnippetCard } from '@/components/SnippetCard';
 import { SnippetDetails } from '@/types/snippets';  // Create this shared type
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { FileCode2, FolderOpen } from 'lucide-react';
 // import { FilterOptions } from './SearchAndFilter';
 
 interface snippetGridProps{
@@ -23,97 +25,74 @@ export function SnippetGrid({snippets,displaySnippets}: snippetGridProps) {
   // const [filteredSnippets, setFilteredSnippets] = useState<SnippetDetails[]>([]);
   const router = useRouter();
 
-  // useEffect(() => {
-  //   let filtered = snippets;
+  // Animation variants for grid items
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.05
+      }
+    }
+  };
 
-  //   // Apply search filter
-  //   // if (searchTerm) {
-  //   //   const searchLower = searchTerm.toLowerCase();
-  //   //   filtered = filtered.filter(snippet => {
-  //   //     return (
-  //   //       snippet.heading.toLowerCase().includes(searchLower) ||
-  //   //       snippet.description.toLowerCase().includes(searchLower) ||
-  //   //       snippet.code.toLowerCase().includes(searchLower) ||
-  //   //       snippet.tags.some(tag => tag.toLowerCase().includes(searchLower))
-  //   //     );
-  //   //   });
-  //   // }
+  const item = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+  };
 
-  //   // Apply folder filter
-  //   // if (filterOptions.folders.length > 0) {
-  //   //   filtered = filtered.filter(snippet => 
-  //   //     filterOptions.folders.includes(snippet.folder)
-  //   //   );
-  //   // }
+  if (snippets.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+        <div className="bg-primary/10 p-4 rounded-full mb-4">
+          <FileCode2 className="h-8 w-8 text-primary" />
+        </div>
+        <h3 className="text-xl font-semibold mb-2">No snippets yet</h3>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          Create your first code snippet to get started. You can organize, edit, and preview your code.
+        </p>
+        <button 
+          onClick={() => router.push('/dashboard/playground')}
+          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          Create a snippet
+        </button>
+      </div>
+    );
+  }
 
-  //   // Apply tag filter
-  //   // if (filterOptions.tags.length > 0) {
-  //   //   filtered = filtered.filter(snippet =>
-  //   //     snippet.tags.some(tag => filterOptions.tags.includes(tag))
-  //   //   );
-  //   // }
-
-  //   // Apply date filter
-  //   // if (filterOptions.dateRange.start || filterOptions.dateRange.end) {
-  //   //   filtered = filtered.filter(snippet => {
-  //   //     const snippetDate = new Date(snippet.createdAt || '');
-  //   //     const start = filterOptions.dateRange.start ? new Date(filterOptions.dateRange.start) : null;
-  //   //     const end = filterOptions.dateRange.end ? new Date(filterOptions.dateRange.end) : null;
-
-  //   //     if (start && end) {
-  //   //       return snippetDate >= start && snippetDate <= end;
-  //   //     } else if (start) {
-  //   //       return snippetDate >= start;
-  //   //     } else if (end) {
-  //   //       return snippetDate <= end;
-  //   //     }
-  //   //     return true;
-  //   //   });
-  //   // }
-
-  //   // Apply sorting
-  //   // filtered.sort((a, b) => {
-  //   //   const dateA = new Date(a.createdAt || '').getTime();
-  //   //   const dateB = new Date(b.createdAt || '').getTime();
-  //   //   return filterOptions.sortBy === 'newest' ? dateB - dateA : dateA - dateB;
-  //   // });
-
-  //   // setFilteredSnippets(filtered);
-  // }, [snippets, searchTerm, filterOptions]);
+  if (displaySnippets.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+        <div className="bg-muted p-4 rounded-full mb-4">
+          <FolderOpen className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-xl font-semibold mb-2">No matching snippets</h3>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          Try adjusting your search terms or filters to find what you're looking for.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4 relative">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-        {displaySnippets.length > 0 ? (
-          displaySnippets.map((snippet) => (
-            <div 
-              key={`${snippet.id}`}
-              onClick={() => router.push(`/dashboard/playground?snippet=${snippet.id}`)}
-            >
-              <SnippetCard
-                snippet={{
-                  title: snippet.title,
-                  description: snippet.description,
-                  code: snippet.code,
-                  tags: snippet.tags,
-                  createdAt: snippet.createdAt || new Date(),
-                }}
-              />
-            </div>
-          ))
-        ) : (
-          <div className="col-span-full text-center py-8">
-            {snippets.length === 0 ? (
-              <p className="text-muted-foreground">Loading snippets...</p>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-lg font-medium">No matching snippets found</p>
-                <p className="text-muted-foreground">Try adjusting your search or filters</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+    <motion.div 
+      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+      variants={container}
+      initial="hidden"
+      animate="show"
+    >
+      {displaySnippets.map((snippet) => (
+        <motion.div 
+          key={`${snippet.id}`}
+          onClick={() => router.push(`/dashboard/playground?snippet=${snippet.id}`)}
+          className="cursor-pointer"
+          variants={item}
+          whileHover={{ y: -4, transition: { duration: 0.2 } }}
+        >
+          <SnippetCard snippet={snippet} />
+        </motion.div>
+      ))}
+    </motion.div>
   );
 } 

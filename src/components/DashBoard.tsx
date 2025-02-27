@@ -6,24 +6,24 @@ import { useContext } from 'react';
 import { DataContext } from '@/components/providers/dataProvider';
 
 export default function DashboardPage() {
-  
+  const { snippets, setSnippets } = useContext<{
+    snippets: SnippetDetails[],
+    setSnippets: (snippets: SnippetDetails[]) => void
+  }>(DataContext);
 
-    const {snippets, setSnippets} = useContext<{snippets:SnippetDetails[], setSnippets:(snippets:SnippetDetails[])=>void}>(DataContext);
+  const [filteredSnippets, setFilteredSnippets] = useState<SnippetDetails[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilters, setActiveFilters] = useState<FilterOptions>({
+    selectedFolders: [],
+    selectedTags: [],
+    dateRange: { start: '', end: '' },
+    sortBy: 'newest'
+  });
 
-    const [filteredSnippets, setFilteredSnippets] = useState<SnippetDetails[]>([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [activeFilters, setActiveFilters] = useState<FilterOptions>({
-        selectedFolders: [],
-        selectedTags: [],
-        dateRange: { start: '', end: '' },
-        sortBy: 'newest'
-    });
-
-    useEffect(()=>{
-      const nonTrashSnippets = snippets.filter(snippet => !snippet.isTrash);
-      setFilteredSnippets(nonTrashSnippets);
-    },[snippets])
-
+  useEffect(() => {
+    const nonTrashSnippets = snippets.filter(snippet => !snippet.isTrash);
+    setFilteredSnippets(nonTrashSnippets);
+  }, [snippets]);
 
   // Combined filter and search function
   const applyFiltersAndSearch = (
@@ -32,7 +32,7 @@ export default function DashboardPage() {
     search: string
   ) => {
     // Step 1: Apply Filters
-    let result = originalSnippets;
+    let result = originalSnippets.filter(snippet => !snippet.isTrash);
 
     if (filters.selectedTags.length > 0) {
       result = result.filter(snippet =>
@@ -87,13 +87,19 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="flex min-h-screen">
-      <div className="flex-1">
-        <div className="p-6">
+    <main className="flex min-h-screen bg-background">
+      <div className="flex-1 max-w-7xl mx-auto">
+        <div className="p-6 space-y-6">
+          <div className="mb-2">
+            <h1 className="text-2xl font-bold tracking-tight">Snippets</h1>
+            <p className="text-muted-foreground">Manage and organize your code snippets</p>
+          </div>
+          
           <SearchAndFilter 
             handleSearch={handleSearch} 
             handleFilter={handleFilter}
           />
+          
           <SnippetGrid 
             snippets={snippets} 
             displaySnippets={filteredSnippets} 

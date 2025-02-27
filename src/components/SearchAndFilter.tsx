@@ -1,136 +1,329 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Filter, X, Plus } from 'lucide-react';
-import { getAllTags } from '@/lib/db';
-import { FilterOptions, SnippetDetails } from '@/types/snippets';
+import { Search, Plus, SlidersHorizontal, ArrowDownAZ, ArrowUpAZ, X, Calendar } from 'lucide-react';
+import { FilterOptions } from '@/types/snippets';
 import { useRouter } from 'next/navigation';
-interface SearchAndFilterProps{
-  handleSearch:(searchTerm:string)=>void;
-  handleFilter:(filter:FilterOptions)=>void;
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { Input } from '@/components/ui/input';
+import { getAllTags } from '@/lib/db';
+
+interface SearchAndFilterProps {
+  handleSearch: (searchTerm: string) => void;
+  handleFilter: (filter: FilterOptions) => void;
 }
 
-export function SearchAndFilter({handleSearch,handleFilter}:SearchAndFilterProps) {
+export function SearchAndFilter({ handleSearch, handleFilter }: SearchAndFilterProps) {
   const router = useRouter();
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Filter States
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
-
-  // Available options states
+  const [isFilterActive, setIsFilterActive] = useState(false);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  
+  // Temporary state for filter values
+  const [tempFilters, setTempFilters] = useState({
+    sortBy: 'newest' as 'newest' | 'oldest',
+    dateRange: { start: '', end: '' },
+    selectedTags: [] as string[]
+  });
+  
+  // Active filter values
+  const [activeFilters, setActiveFilters] = useState({
+    sortBy: 'newest' as 'newest' | 'oldest',
+    dateRange: { start: '', end: '' },
+    selectedTags: [] as string[]
+  });
+
+  const [showStartDate, setShowStartDate] = useState(false);
+  const [showEndDate, setShowEndDate] = useState(false);
+  const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
-    const loadFilterOptions = async () => {
+    const fetchTags = async () => {
       try {
         const tags = await getAllTags();
-
         setAvailableTags(tags);
       } catch (error) {
-        console.error('Error loading filter options:', error);
+        console.error('Failed to fetch tags:', error);
       }
     };
 
-    loadFilterOptions();
+    fetchTags();
   }, []);
 
-
-  const toggleTag = (tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    );
+  const handleSortChange = (value: 'newest' | 'oldest') => {
+    setTempFilters(prev => ({ ...prev, sortBy: value }));
   };
 
-  const handleDateChange = (type: 'start' | 'end', value: string) => {
-    setDateRange(prev => ({
+  const handleDateSelect = (date: Date | undefined, type: 'start' | 'end') => {
+    if (date) {
+      const newDateRange = {
+        ...tempFilters.dateRange,
+        [type]: date.toISOString()
+      };
+      setTempFilters(prev => ({ ...prev, dateRange: newDateRange }));
+      type === 'start' ? setShowStartDate(false) : setShowEndDate(false);
+    }
+  };
+
+  const addTag = () => {
+    if (newTag && !tempFilters.selectedTags.includes(newTag)) {
+      setTempFilters(prev => ({
+        ...prev,
+        selectedTags: [...prev.selectedTags, newTag]
+      }));
+      setNewTag('');
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    setTempFilters(prev => ({
       ...prev,
-      [type]: value
+      selectedTags: prev.selectedTags.filter(t => t !== tag)
     }));
   };
 
-  const handleClear = () => {
-    setSelectedTags([]);
-    setDateRange({ start: '', end: '' });
-    setSortBy('newest');
-  }
+  const toggleTag = (tag: string) => {
+    setTempFilters(prev => ({
+      ...prev,
+      selectedTags: prev.selectedTags.includes(tag)
+        ? prev.selectedTags.filter(t => t !== tag)
+        : [...prev.selectedTags, tag]
+    }));
+  };
 
-  // const handleApplyFilters = () => {
-  //   onFilter({
-  //     folders: selectedFolders,
-  //     tags: selectedTags,
-  //     dateRange,
-  //     sortBy
-  //   });
-  //   setIsFilterOpen(false);
-  // };
+  const applyFilters = () => {
+    setActiveFilters(tempFilters);
+    setIsFilterActive(
+      tempFilters.sortBy !== 'newest' ||
+      tempFilters.dateRange.start !== '' ||
+      tempFilters.dateRange.end !== '' ||
+      tempFilters.selectedTags.length > 0
+    );
+    handleFilter({
+      selectedFolders: [],
+      selectedTags: tempFilters.selectedTags,
+      dateRange: tempFilters.dateRange,
+      sortBy: tempFilters.sortBy
+    });
+  };
 
-  // const handleClearFilters = () => {
-  //   setSelectedFolders([]);
-  //   setSelectedTags([]);
-  //   setDateRange({ start: '', end: '' });
-  //   setSortBy('newest');
-  //   onFilter({
-  //     folders: [],
-  //     tags: [],
-  //     dateRange: { start: '', end: '' },
-  //     sortBy: 'newest'
-  //   });
-  // };
+  const clearFilters = () => {
+    const defaultFilters = {
+      sortBy: 'newest' as const,
+      dateRange: { start: '', end: '' },
+      selectedTags: []
+    };
+    setTempFilters(defaultFilters);
+    setActiveFilters(defaultFilters);
+    setIsFilterActive(false);
+    handleFilter({
+      selectedFolders: [],
+      selectedTags: [],
+      dateRange: { start: '', end: '' },
+      sortBy: 'newest'
+    });
+  };
 
   return (
-    <div className="w-full mb-6 flex justify-between items-center relative">
-      <div className="flex gap-2 items-center w-2/3 relative">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+    <div className="w-full flex flex-col gap-4">
+      <div className="flex justify-between items-center gap-4">
+        <div className="flex-1 relative group">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 group-hover:text-primary transition-colors" />
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) =>{
+            onChange={(e) => {
               setSearchTerm(e.target.value);
               handleSearch(e.target.value);
-            } }
+            }}
             placeholder="Search snippets..."
-            className="w-full pl-10 pr-4 py-2 rounded-lg border bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border bg-background/50 focus:bg-background 
+                     focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-primary/20
+                     transition-all duration-200"
           />
         </div>
-        <button
-          onClick={() => setIsFilterOpen(!isFilterOpen)}
-          className={`px-4 py-2 rounded-lg border bg-background hover:bg-muted flex items-center gap-2 ${
-            isFilterOpen ? 'bg-muted' : ''
-          }`}
-        >
-          <Filter className="h-4 w-4" />
-          Filters
-        </button>
 
-        {isFilterOpen && (
-          <div className="absolute top-full mt-2 right-0 w-[400px] p-5 rounded-lg border bg-card shadow-lg z-50">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-base">Filter Snippets</h3>
-              <button
-                onClick={() => setIsFilterOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
+        <div className="flex items-center gap-3">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant={isFilterActive ? "default" : "outline"} 
+                size="sm"
+                className="flex items-center gap-2 h-10 px-4 rounded-xl hover:shadow-md transition-all duration-200"
               >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+                <SlidersHorizontal className="h-4 w-4" />
+                Filter & Sort
+                {isFilterActive && (
+                  <Badge 
+                    variant="secondary" 
+                    className="ml-1 px-2 py-0.5 h-5 rounded-md bg-primary/10 text-primary"
+                  >
+                    {(activeFilters.selectedTags.length > 0 ? 1 : 0) + 
+                     (activeFilters.dateRange.start || activeFilters.dateRange.end ? 1 : 0) + 
+                     (activeFilters.sortBy !== 'newest' ? 1 : 0)}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent 
+              className="w-[340px] p-5 rounded-xl shadow-lg border-primary/5" 
+              align="end" 
+              sideOffset={8}
+            >
+              <div className="space-y-5">
+                {/* Sort Section */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium">Sort by</h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      variant={tempFilters.sortBy === 'newest' ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => handleSortChange('newest')}
+                      className="w-full rounded-lg hover:shadow-sm transition-all duration-200"
+                    >
+                      <ArrowDownAZ className="h-3.5 w-3.5 mr-2" />
+                      Newest
+                    </Button>
+                    <Button 
+                      variant={tempFilters.sortBy === 'oldest' ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => handleSortChange('oldest')}
+                      className="w-full rounded-lg hover:shadow-sm transition-all duration-200"
+                    >
+                      <ArrowUpAZ className="h-3.5 w-3.5 mr-2" />
+                      Oldest
+                    </Button>
+                  </div>
+                </div>
 
-      <div className="flex justify-end">
-        <button
-          onClick={() => router.push('/dashboard/playground')}
-          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Add Snippet
-        </button>
+                <Separator className="bg-primary/5" />
+
+                {/* Date Range Section */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium">Date range</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-left font-normal rounded-lg 
+                                 hover:shadow-sm transition-all duration-200"
+                        onClick={() => setShowStartDate(!showStartDate)}
+                      >
+                        <Calendar className="h-3.5 w-3.5 mr-2" />
+                        {tempFilters.dateRange.start ? 
+                          format(new Date(tempFilters.dateRange.start), 'PP') : 
+                          'Start date'
+                        }
+                      </Button>
+                      {showStartDate && (
+                        <div className="absolute mt-2 bg-popover border rounded-xl shadow-lg z-50 overflow-hidden">
+                          <CalendarComponent
+                            mode="single"
+                            selected={tempFilters.dateRange.start ? new Date(tempFilters.dateRange.start) : undefined}
+                            onSelect={(date) => handleDateSelect(date, 'start')}
+                            disabled={(date) => tempFilters.dateRange.end ? date > new Date(tempFilters.dateRange.end) : false}
+                            initialFocus
+                            className="rounded-lg border-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-left font-normal rounded-lg 
+                                 hover:shadow-sm transition-all duration-200"
+                        onClick={() => setShowEndDate(!showEndDate)}
+                      >
+                        <Calendar className="h-3.5 w-3.5 mr-2" />
+                        {tempFilters.dateRange.end ? 
+                          format(new Date(tempFilters.dateRange.end), 'PP') : 
+                          'End date'
+                        }
+                      </Button>
+                      {showEndDate && (
+                        <div className="absolute mt-2 bg-popover border rounded-xl shadow-lg z-50 overflow-hidden">
+                          <CalendarComponent
+                            mode="single"
+                            selected={tempFilters.dateRange.end ? new Date(tempFilters.dateRange.end) : undefined}
+                            onSelect={(date) => handleDateSelect(date, 'end')}
+                            disabled={(date) => tempFilters.dateRange.start ? date < new Date(tempFilters.dateRange.start) : false}
+                            initialFocus
+                            className="rounded-lg border-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <Separator className="bg-primary/5" />
+
+                {/* Tags Section */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium">Tags</h3>
+                  <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto p-2 rounded-xl 
+                                bg-muted/30 border border-primary/5">
+                    {availableTags.map((tag) => (
+                      <Badge 
+                        key={tag}
+                        variant={tempFilters.selectedTags.includes(tag) ? "default" : "secondary"}
+                        className="cursor-pointer px-2.5 py-1 rounded-lg hover:bg-primary/90 
+                                 transition-all duration-200 hover:shadow-sm"
+                        onClick={() => toggleTag(tag)}
+                      >
+                        {tag}
+                      </Badge>
+                    ))}
+                    {availableTags.length === 0 && (
+                      <span className="text-sm text-muted-foreground p-2">
+                        No tags available
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <Separator className="bg-primary/5" />
+
+                {/* Action Buttons */}
+                <div className="flex justify-between gap-3 pt-1">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={clearFilters}
+                    className="flex-1 rounded-lg hover:bg-destructive/10 hover:text-destructive 
+                             transition-all duration-200"
+                  >
+                    Clear all
+                  </Button>
+                  <Button 
+                    size="sm"
+                    onClick={applyFilters}
+                    className="flex-1 rounded-lg hover:shadow-md transition-all duration-200"
+                  >
+                    Apply filters
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            onClick={() => router.push('/dashboard/playground')}
+            className="flex items-center gap-2 h-10 px-4 rounded-xl hover:shadow-md 
+                     transition-all duration-200"
+          >
+            <Plus className="h-4 w-4" />
+            New Snippet
+          </Button>
+        </div>
       </div>
     </div>
   );
