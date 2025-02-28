@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { Providers } from "@/components/providers";
-
+import "@/app/globals.css";
 export const metadata: Metadata = {
   title: "Snippyvault",
   description: "Snippyvault",
@@ -14,7 +13,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <Providers>{children}</Providers>
+        {children}
       </body>
     </html>
   );
