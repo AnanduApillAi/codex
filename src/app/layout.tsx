@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-
-
+import { Providers } from "@/components/providers";
 
 export const metadata: Metadata = {
   title: "Snippyvault",
@@ -13,9 +12,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
