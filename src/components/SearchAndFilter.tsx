@@ -131,7 +131,8 @@ export function SearchAndFilter({ handleSearch, handleFilter }: SearchAndFilterP
 
   return (
     <div className="w-full flex flex-col gap-4">
-      <div className="flex justify-between items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
+        {/* Search Input - Full width on mobile */}
         <div className="flex-1 relative group">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4 group-hover:text-primary transition-colors" />
           <input
@@ -148,16 +149,17 @@ export function SearchAndFilter({ handleSearch, handleFilter }: SearchAndFilterP
           />
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Action Buttons - Stack on mobile */}
+        <div className="flex items-stretch sm:items-center gap-3">
           <Popover>
             <PopoverTrigger asChild>
               <Button 
                 variant={isFilterActive ? "default" : "outline"} 
                 size="sm"
-                className="flex items-center gap-2 h-10 px-4 rounded-xl hover:shadow-md transition-all duration-200"
+                className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl hover:shadow-md transition-all duration-200 w-full sm:w-auto"
               >
                 <SlidersHorizontal className="h-4 w-4" />
-                Filter & Sort
+                <span className="inline">Filter & Sort</span>
                 {isFilterActive && (
                   <Badge 
                     variant="secondary" 
@@ -171,7 +173,7 @@ export function SearchAndFilter({ handleSearch, handleFilter }: SearchAndFilterP
               </Button>
             </PopoverTrigger>
             <PopoverContent 
-              className="w-[340px] p-5 rounded-xl shadow-lg border-primary/5" 
+              className="w-[min(340px,calc(100vw-2rem))] p-4 sm:p-5 rounded-xl shadow-lg border-primary/5" 
               align="end" 
               sideOffset={8}
             >
@@ -317,14 +319,16 @@ export function SearchAndFilter({ handleSearch, handleFilter }: SearchAndFilterP
 
           <Button
             onClick={() => router.push('/dashboard/playground')}
-            className="flex items-center gap-2 h-10 px-4 rounded-xl hover:shadow-md 
-                     transition-all duration-200"
+            className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl hover:shadow-md 
+                     transition-all duration-200 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
-            New Snippet
+            <span className="inline">New Snippet</span>
           </Button>
         </div>
       </div>
+
+      
     </div>
   );
 } 

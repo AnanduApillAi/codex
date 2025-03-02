@@ -78,6 +78,7 @@ import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
 import { motion } from "framer-motion";
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 // This is sample data.
 const data = {
@@ -438,12 +439,12 @@ export function AppSidebar() {
                                   initial={{ opacity: 0, y: -5 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   className={`flex items-center justify-between px-9 py-1.5 text-sm rounded-md ${isActive(snippet.id) ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
-                                    } transition-colors cursor-pointer group`}
+                                    } transition-colors cursor-pointer md:group`}
                                   onClick={() => router.push(`/dashboard/playground?snippet=${snippet.id}`)}
                                 >
                                   <span className="truncate">{snippet.title || 'Untitled Snippet'}</span>
 
-                                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="flex items-center md:opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                       onClick={(e) => removeFromFavorites(snippet, e)}
                                       className="p-1 rounded-md hover:bg-background"
@@ -479,7 +480,7 @@ export function AppSidebar() {
                     <SidebarMenuButton tooltip="All Snippets">
                       <Folder className="h-4 w-4" />
                       <span>All Snippets</span>
-                      {snippets.length > 0 && (
+                      {snippets.filter((snippet) => !snippet.isTrash).length > 0 && (
                         <Badge variant="secondary" className="ml-auto">
                           {snippets.length}
                         </Badge>
@@ -490,11 +491,11 @@ export function AppSidebar() {
 
                   <CollapsibleContent className="pt-1 pb-2 transition-opacity duration-200">
                     <SidebarMenuSub>
-                      {snippets.length === 0 ? (
+                      {snippets.filter((snippet) => !snippet.isTrash).length === 0 ? (
                         <p className="text-xs text-muted-foreground px-9 py-2">No snippets yet</p>
                       ) : (
                         <div className="space-y-1">
-                          {snippets.map((snippet) => (
+                          {snippets.filter((snippet) => !snippet.isTrash).map((snippet) => (
                             <SidebarMenuSubItem key={snippet.id}>
                               <SidebarMenuSubButton asChild>
                                 <motion.div
@@ -504,7 +505,7 @@ export function AppSidebar() {
                                   onClick={() => router.push(`/dashboard/playground?snippet=${snippet.id}`)}
                                 >
                                   <span className="truncate">{snippet.title || 'Untitled Snippet'}</span>
-                                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="flex items-center md:opacity-0 group-hover:opacity-100 transition-opacity">
                                     {snippet.isFavorite ? (
                                       <button
                                         onClick={(e) => removeFromFavorites(snippet, e)}
@@ -573,7 +574,7 @@ export function AppSidebar() {
                                   onClick={() => router.push(`/dashboard/playground?snippet=${snippet.id}`)}
                                 >
                                   <span className="truncate">{snippet.title || 'Untitled Snippet'}</span>
-                                  <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="flex items-center md:opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                       onClick={(e) => handleRestoreSnippet(snippet, e)}
                                       className="p-1 rounded-md hover:bg-background"
@@ -603,90 +604,7 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton
-                    size="lg"
-                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                  >
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage
-                        src="/avatars/shadcn.jpg"
-                        alt="User"
-                      />
-                      <AvatarFallback className="rounded-lg">US</AvatarFallback>
-                    </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">
-                        User
-                      </span>
-                      <span className="truncate text-xs">
-                        user@example.com
-                      </span>
-                    </div>
-                    <ChevronsUpDown className="ml-auto size-4" />
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                  side="bottom"
-                  align="end"
-                  sideOffset={4}
-                >
-                  <DropdownMenuLabel className="p-0 font-normal">
-                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                      <Avatar className="h-8 w-8 rounded-lg">
-                        <AvatarImage
-                          src="/avatars/shadcn.jpg"
-                          alt="User"
-                        />
-                        <AvatarFallback className="rounded-lg">
-                          US
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-semibold">
-                          User
-                        </span>
-                        <span className="truncate text-xs">
-                          user@example.com
-                        </span>
-                      </div>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Upgrade to Pro
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem>
-                      <BadgeCheck className="mr-2 h-4 w-4" />
-                      Account
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      Billing
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Bell className="mr-2 h-4 w-4" />
-                      Notifications
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
+          
         </SidebarFooter>
 
         <SidebarRail />
@@ -695,12 +613,14 @@ export function AppSidebar() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Snippet</DialogTitle>
+            <VisuallyHidden>
+              <DialogTitle>Delete Snippet</DialogTitle>
+            </VisuallyHidden>
             <DialogDescription>
               Are you sure you want to permanently delete this snippet? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex items-center justify-between sm:justify-between gap-2">
+          <DialogFooter className="flex flex-row items-center justify-between sm:justify-between gap-2">
             <Button
               variant="outline"
               onClick={() => setDialogOpen(false)}
