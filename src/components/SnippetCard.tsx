@@ -63,8 +63,7 @@ export function SnippetCard({ snippet }: { snippet: SnippetDetails }) {
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 rounded-full opacity-0 transition-opacity duration-200 hover:bg-muted"
-            style={{ opacity: isHovering ? 0.9 : 0 }}
+            className="h-8 w-8 rounded-full transition-opacity duration-200 hover:bg-muted hover:text-muted-foreground"
             onClick={handleCopy}
           >
             <ClipboardCopy className="h-4 w-4" />

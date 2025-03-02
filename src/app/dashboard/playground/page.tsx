@@ -198,7 +198,7 @@ export default function Playground() {
     return (
         <div className="h-screen p-4 w-full">
             <Card className="h-full flex flex-col overflow-hidden border-border">
-                <div className="flex items-center justify-between p-4 border-b bg-card">
+                <div className="flex flex-col sm:flex-row items-stretch gap-y-4 sm:items-center justify-between p-4 border-b bg-card">
                     <div className="flex items-center gap-3">
                         <Button 
                             variant="ghost" 
@@ -253,93 +253,102 @@ export default function Playground() {
                                     Save
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
-                                <DialogHeader>
-                                    <DialogTitle>Save Snippet</DialogTitle>
-                                    <DialogDescription>
+                            <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
+                                <DialogHeader className="text-left">
+                                    <DialogTitle className="text-xl">Save Snippet</DialogTitle>
+                                    <DialogDescription className="text-sm text-muted-foreground">
                                         Add details to your code snippet for better organization.
                                     </DialogDescription>
                                 </DialogHeader>   
-                                <div className="grid gap-4 py-4">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="name">Title</Label>
-                                        <Input 
-                                            type="text" 
-                                            id="name" 
-                                            placeholder="My Awesome Snippet" 
-                                            value={snippet?.title} 
-                                            onChange={(e) => setSnippet({...snippet!, title: e.target.value})} 
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="description">Description</Label>
-                                        <Textarea 
-                                            id="description" 
-                                            placeholder="A brief description of what this snippet does" 
-                                            value={snippet?.description} 
-                                            onChange={(e) => setSnippet({...snippet!, description: e.target.value})}
-                                            className="resize-none"
-                                            rows={3}
-                                        />
-                                    </div>
-                                    
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="tags">Tags</Label>
-                                        <div className="flex gap-2">
+                                
+                                <div className="flex-1 overflow-y-auto pr-2 my-4">
+                                    <div className="space-y-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="name" className="text-sm font-medium">Title</Label>
                                             <Input 
                                                 type="text" 
-                                                id="tags" 
-                                                placeholder="Add a tag" 
-                                                value={newTag}
-                                                onChange={(e) => setNewTag(e.target.value)}
-                                                onKeyDown={handleKeyDown}
+                                                id="name" 
+                                                placeholder="My Awesome Snippet" 
+                                                value={snippet?.title} 
+                                                onChange={(e) => setSnippet({...snippet!, title: e.target.value})} 
+                                                className="w-full rounded-lg"
                                             />
-                                            <Button 
-                                                type="button" 
-                                                variant="secondary" 
-                                                onClick={handleAddTag}
-                                            >
-                                                Add
-                                            </Button>
                                         </div>
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                            {snippet?.tags.length === 0 && (
-                                                <p className="text-sm text-muted-foreground">No tags added yet</p>
-                                            )}
-                                            {snippet?.tags.map((tag, index) => (
-                                                <Badge 
-                                                    key={index} 
-                                                    variant="secondary"
-                                                    className="flex items-center gap-1 px-2 py-1"
+                                        
+                                        <div className="space-y-2">
+                                            <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+                                            <Textarea 
+                                                id="description" 
+                                                placeholder="A brief description of what this snippet does" 
+                                                value={snippet?.description} 
+                                                onChange={(e) => setSnippet({...snippet!, description: e.target.value})}
+                                                className="resize-none rounded-lg min-h-[80px]"
+                                                rows={3}
+                                            />
+                                        </div>
+                                        
+                                        <div className="space-y-2">
+                                            <Label htmlFor="tags" className="text-sm font-medium">Tags</Label>
+                                            <div className="flex gap-2">
+                                                <Input 
+                                                    type="text" 
+                                                    id="tags" 
+                                                    placeholder="Add a tag" 
+                                                    value={newTag}
+                                                    onChange={(e) => setNewTag(e.target.value)}
+                                                    onKeyDown={handleKeyDown}
+                                                    className="flex-1 rounded-lg"
+                                                />
+                                                <Button 
+                                                    type="button" 
+                                                    variant="secondary" 
+                                                    onClick={handleAddTag}
+                                                    className="shrink-0"
                                                 >
-                                                    {tag}
-                                                    <X 
-                                                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                                                        onClick={() => handleRemoveTag(tag)}
-                                                    />
-                                                </Badge>
-                                            ))}
+                                                    Add
+                                                </Button>
+                                            </div>
+                                            
+                                            <div className="flex flex-wrap gap-2 mt-2 max-h-[120px] overflow-y-auto p-2 rounded-lg bg-muted/30">
+                                                {snippet?.tags.length === 0 && (
+                                                    <p className="text-sm text-muted-foreground p-2">No tags added yet</p>
+                                                )}
+                                                {snippet?.tags.map((tag, index) => (
+                                                    <Badge 
+                                                        key={index} 
+                                                        variant="secondary"
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
+                                                    >
+                                                        {tag}
+                                                        <X 
+                                                            className="h-3 w-3 cursor-pointer hover:text-destructive transition-colors" 
+                                                            onClick={() => handleRemoveTag(tag)}
+                                                        />
+                                                    </Badge>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                                 
-                                <DialogFooter className="flex items-center justify-between sm:justify-between">
+                                <DialogFooter className="flex items-center justify-between flex-row border-t pt-4 mt-auto">
                                     {snippetId && !snippet?.isTrash && (
                                         <Button 
                                             variant="outline" 
                                             type="button" 
                                             onClick={moveToTrash}
-                                            className="gap-1.5"
+                                            className="gap-1.5 hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors"
                                             disabled={isSaving}
                                         >
                                             <Trash2 className="h-4 w-4" />
-                                            Move to Trash
+                                            <span className="hidden sm:inline">Move to Trash</span>
                                         </Button>
                                     )}
                                     <Button 
                                         type="submit" 
                                         onClick={handleSave}
                                         disabled={isSaving}
+                                        className="min-w-[100px] rounded-lg"
                                     >
                                         {isSaving ? (
                                             <>
