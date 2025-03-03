@@ -1,28 +1,17 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
 import { SnippetCard } from '@/components/SnippetCard';
 import { SnippetDetails } from '@/types/snippets';  // Create this shared type
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { FileCode2, FolderOpen } from 'lucide-react';
-// import { FilterOptions } from './SearchAndFilter';
 
 interface snippetGridProps{
   snippets:SnippetDetails[];
   displaySnippets:SnippetDetails[];
 }
 
-// interface SnippetGridProps {
-//   selectedFolder: string | null;
-//   onSnippetSelect: (snippet: SnippetDetails) => void;
-//   updateTrigger: number;
-//   onNewSnippet: (selectedFolder: string | null) => void;
-//   searchTerm: string;
-//   filterOptions: FilterOptions;
-// }
 
 export function SnippetGrid({snippets,displaySnippets}: snippetGridProps) {
-  // const [filteredSnippets, setFilteredSnippets] = useState<SnippetDetails[]>([]);
   const router = useRouter();
 
   // Animation variants for grid items

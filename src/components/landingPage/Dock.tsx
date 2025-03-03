@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarIcon, HomeIcon, MailIcon, PencilIcon, GlobeIcon, NewspaperIcon } from "lucide-react";
+import { CalendarIcon, MailIcon, GlobeIcon, NewspaperIcon } from "lucide-react";
 import Link from "next/link";
 import React from "react";
 
@@ -64,29 +64,29 @@ const Icons = {
 
 const DATA = {
   navbar: [
-    { href: "#", icon: GlobeIcon, label: "Portfolio" },
-    { href: "#", icon: NewspaperIcon, label: "Blog" },
+    { href: "https://www.anandu.dev/", icon: GlobeIcon, label: "Portfolio" },
+    { href: "https://www.anandu.dev/blog", icon: NewspaperIcon, label: "Blog" },
   ],
   contact: {
     social: {
       GitHub: {
         name: "GitHub",
-        url: "#",
+        url: "https://github.com/AnanduApillAi",
         icon: Icons.github,
       },
       LinkedIn: {
         name: "LinkedIn",
-        url: "#",
+        url: "https://www.linkedin.com/in/anandu-dev/",
         icon: Icons.linkedin,
       },
       X: {
         name: "X",
-        url: "#",
+        url: "https://x.com/anandu_a_dev",
         icon: Icons.x,
       },
       email: {
         name: "Send Email",
-        url: "#",
+        url: "mailto:anandu.a.dev@gmail.com",
         icon: Icons.email,
       },
     },
