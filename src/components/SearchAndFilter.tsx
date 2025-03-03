@@ -10,7 +10,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format } from 'date-fns';
-import { Input } from '@/components/ui/input';
 import { getAllTags } from '@/lib/db';
 
 interface SearchAndFilterProps {
@@ -40,7 +39,6 @@ export function SearchAndFilter({ handleSearch, handleFilter }: SearchAndFilterP
 
   const [showStartDate, setShowStartDate] = useState(false);
   const [showEndDate, setShowEndDate] = useState(false);
-  const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
     const fetchTags = async () => {
@@ -70,22 +68,7 @@ export function SearchAndFilter({ handleSearch, handleFilter }: SearchAndFilterP
     }
   };
 
-  const addTag = () => {
-    if (newTag && !tempFilters.selectedTags.includes(newTag)) {
-      setTempFilters(prev => ({
-        ...prev,
-        selectedTags: [...prev.selectedTags, newTag]
-      }));
-      setNewTag('');
-    }
-  };
-
-  const removeTag = (tag: string) => {
-    setTempFilters(prev => ({
-      ...prev,
-      selectedTags: prev.selectedTags.filter(t => t !== tag)
-    }));
-  };
+  
 
   const toggleTag = (tag: string) => {
     setTempFilters(prev => ({
@@ -277,7 +260,7 @@ export function SearchAndFilter({ handleSearch, handleFilter }: SearchAndFilterP
                       <Badge 
                         key={tag}
                         variant={tempFilters.selectedTags.includes(tag) ? "default" : "secondary"}
-                        className="cursor-pointer px-2.5 py-1 rounded-lg hover:bg-primary/90 
+                        className="cursor-pointer px-2.5 py-1 rounded-lg hover:bg-primary/90 hover:text-secondary
                                  transition-all duration-200 hover:shadow-sm"
                         onClick={() => toggleTag(tag)}
                       >
@@ -308,7 +291,8 @@ export function SearchAndFilter({ handleSearch, handleFilter }: SearchAndFilterP
                   <Button 
                     size="sm"
                     onClick={applyFilters}
-                    className="flex-1 rounded-lg hover:shadow-md transition-all duration-200"
+                    className="flex-1 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors
+                             duration-200"
                   >
                     Apply filters
                   </Button>
@@ -319,8 +303,8 @@ export function SearchAndFilter({ handleSearch, handleFilter }: SearchAndFilterP
 
           <Button
             onClick={() => router.push('/dashboard/playground')}
-            className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl hover:shadow-md 
-                     transition-all duration-200 w-full sm:w-auto"
+            className="flex items-center justify-center gap-2 h-10 px-4 rounded-xl hover:bg-primary/10 hover:text-primary transition-colors
+                      duration-200 w-full sm:w-auto"
           >
             <Plus className="h-4 w-4" />
             <span className="inline">New Snippet</span>

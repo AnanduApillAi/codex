@@ -1,10 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Shield, Zap, Github } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, Shield, Zap, } from "lucide-react";
 import { BackgroundBeams } from "@/components/ui/background-beams";
-import { useState } from "react";
 import { ShinyButton } from "../magicui/shiny-button";
 
 
@@ -31,8 +29,8 @@ export function HeroSection() {
     const tags = ["JavaScript", "Algorithm", "Math", "Function"];
 
   return (
-    <section className="min-h-screen pt-24 md:pt-24 lg:pt-32 px-4 sm:px-6 md:px-10">
-        <div className="relative flex flex-col lg:flex-row items-center justify-center gap-16 lg:gap-12">
+    <section className="min-h-screen pt-12 md:pt-24 lg:pt-16 px-4 sm:px-6 md:px-10">
+        <div className="relative flex flex-col lg:flex-row items-center justify-center gap-24  lg:gap-12">
           {/* Left Content Side */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
@@ -77,7 +75,7 @@ export function HeroSection() {
               transition={{ delay: 0.5 }}
               className="flex flex-col sm:flex-row gap-4 mb-10 md:mb-16"
             >
-              <ShinyButton className="w-full sm:w-auto text-sm md:text-base">
+              <ShinyButton className="w-full sm:w-auto text-sm md:text-base ">
                 Start Saving Snippets <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5" />
               </ShinyButton>
             </motion.div>

@@ -5,7 +5,7 @@ import { HeroHighlight, Highlight } from "@/components/ui/hero-highlight";
 
 export function BenefitsSection() {
   return (
-    <section className="py-8 lg:py-12 relative overflow-hidden">
+    <section className="py-8 lg:py-12 pt-24 sm:pt-0 relative overflow-hidden">
         <HeroHighlight>
           <motion.h1
             initial={{

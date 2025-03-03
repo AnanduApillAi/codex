@@ -2,54 +2,23 @@
 
 import * as React from "react";
 import {
-  AudioWaveform,
-  BadgeCheck,
-  Bell,
-  BookOpen,
-  Bot,
   ChevronRight,
-  ChevronsUpDown,
-  Command,
-  CreditCard,
   Folder,
   Forward,
-  Frame,
-  GalleryVerticalEnd,
-  LogOut,
-  Map,
-  MoreHorizontal,
-  MoreVertical,
-  PieChart,
-  Plus,
-  Settings2,
-  Sparkles,
-  SquareTerminal,
   Star,
   Trash2,
   Home,
   FileCode,
   Code2,
-  Search,
   Loader2,
 } from "lucide-react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Sidebar,
   SidebarContent,
@@ -58,7 +27,6 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -66,9 +34,7 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { DataContext } from "./providers/dataProvider";
 import { useContext, useEffect, useState } from "react";
 import { SnippetDetails } from "@/types/snippets";
@@ -79,148 +45,16 @@ import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
 import { motion } from "framer-motion";
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { toast } from "sonner";
 
-// This is sample data.
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  teams: [
-    {
-      name: "Acme Inc",
-      logo: GalleryVerticalEnd,
-      plan: "Enterprise",
-    },
-    {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: Command,
-      plan: "Free",
-    },
-  ],
-  navMain: [
-    {
-      title: "Playground",
-      url: "#",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
-    },
-  ],
-};
 
 export function AppSidebar() {
   const { snippets, setSnippets } = useContext(DataContext);
   const [favorites, setFavorites] = useState<SnippetDetails[]>([]);
-  const [regularSnippets, setRegularSnippets] = useState<SnippetDetails[]>([]);
   const [trash, setTrash] = useState<SnippetDetails[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [snippetToDelete, setSnippetToDelete] = useState<SnippetDetails | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [favoritesOpen, setFavoritesOpen] = useState(true);
-  const [snippetsOpen, setSnippetsOpen] = useState(true);
-  const [trashOpen, setTrashOpen] = useState(false);
 
   const router = useRouter();
   const pathname = usePathname();
@@ -233,7 +67,6 @@ export function AppSidebar() {
 
   useEffect(() => {
     setFavorites(snippets.filter((snippet) => snippet.isFavorite && !snippet.isTrash));
-    setRegularSnippets(snippets.filter((snippet) => !snippet.isFavorite && !snippet.isTrash));
     setTrash(snippets.filter((snippet) => snippet.isTrash));
   }, [snippets]);
 
@@ -243,9 +76,11 @@ export function AppSidebar() {
     setSnippets(snippets.map((s) => s.id === snippet.id ? updatedSnippet : s));
     try {
       await updateSnippet(snippet.id!, updatedSnippet);
+      toast.success('Snippet restored successfully');
     } catch (error) {
       console.error(error);
       setSnippets(snippets.map(s => s.id === snippet.id ? snippet : s));
+      toast.error('Failed to restore snippet');
     }
   };
 
@@ -260,13 +95,16 @@ export function AppSidebar() {
       if (isActive(snippetToDelete.id)) {
         router.push('/dashboard');
       }
+      toast.success('Snippet deleted successfully');
     } catch (error) {
       console.error(error);
       setSnippets([...snippets]);
+      toast.error('Failed to delete snippet');
     } finally {
       setDialogOpen(false);
       setSnippetToDelete(null);
       setIsDeleting(false);
+      
     }
   };
 
@@ -278,15 +116,16 @@ export function AppSidebar() {
 
   const addToFavorites = async (snippet: SnippetDetails, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     const updatedSnippet = { ...snippet, isFavorite: true };
     setSnippets(snippets.map(s => s.id === snippet.id ? updatedSnippet : s));
     try {
       await updateSnippet(snippet.id!, updatedSnippet);
-      
+      toast.success('Snippet added to favorites');
     } catch (error) {
       console.error(error);
       setSnippets(snippets.map(s => s.id === snippet.id ? snippet : s));
+      toast.error('Failed to add snippet to favorites');
     }
   };
 
@@ -297,9 +136,11 @@ export function AppSidebar() {
     setSnippets(snippets.map(s => s.id === snippet.id ? updatedSnippet : s));
     try {
       await updateSnippet(snippet.id!, updatedSnippet);
+      toast.success('Snippet removed from favorites');
     } catch (error) {
       console.error(error);
       setSnippets(snippets.map(s => s.id === snippet.id ? snippet : s));
+      toast.error('Failed to remove snippet from favorites');
     }
   };
 
@@ -312,39 +153,14 @@ export function AppSidebar() {
       if (isActive(snippet.id)) {
         router.push('/dashboard');
       }
+      toast.success('Snippet moved to trash');
     } catch (error) {
       console.error(error);
       setSnippets(snippets.map(s => s.id === snippet.id ? snippet : s));
+      toast.error('Failed to move snippet to trash');
     }
   };
 
-  // Add this state to track sidebar collapse state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  // Add this effect to handle sidebar state changes
-  useEffect(() => {
-    const handleSidebarStateChange = () => {
-      // Check if sidebar is collapsed by looking at a data attribute on the sidebar element
-      const sidebarElement = document.querySelector('[data-sidebar-collapsed]');
-      setIsSidebarCollapsed(sidebarElement?.getAttribute('data-sidebar-collapsed') === 'true');
-    };
-
-    // Initial check
-    handleSidebarStateChange();
-
-    // Set up mutation observer to detect sidebar state changes
-    const observer = new MutationObserver(handleSidebarStateChange);
-    const sidebar = document.querySelector('[data-sidebar]');
-
-    if (sidebar) {
-      observer.observe(sidebar, {
-        attributes: true,
-        attributeFilter: ['data-sidebar-collapsed']
-      });
-    }
-
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <>
@@ -355,15 +171,22 @@ export function AppSidebar() {
               <SidebarMenuButton
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                onClick={() => router.push('/dashboard')}
               >
-                <span className="font-semibold text-lg">
-                  CodEX
-                </span>
+
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <Code2 className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold text-2xl">
+                    CodEX
+                  </span>
+                </div>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
 
-          
+
         </SidebarHeader>
 
         <SidebarContent>
@@ -372,6 +195,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
+                  tooltip="Dashboard"
                   className={`w-full justify-start ${pathname === '/dashboard' ? 'bg-accent text-accent-foreground' : ''}`}
                 >
                   <button onClick={() => router.push('/dashboard')}>
@@ -384,6 +208,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
+                  tooltip="New Snippet"
                   className={pathname === '/dashboard/playground' && !currentSnippetId ? 'bg-accent text-accent-foreground' : ''}
                 >
                   <button onClick={() => router.push('/dashboard/playground')} className="w-full">
@@ -412,7 +237,7 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton tooltip={"Favorites"}>
-                      <Star className="h-4 w-4 text-yellow-400" />
+                      <Star className="h-4 w-4" />
                       <span>Favorites</span>
                       {favorites.length > 0 && (
                         <Badge variant="secondary" className="ml-auto">
@@ -482,7 +307,7 @@ export function AppSidebar() {
                       <span>All Snippets</span>
                       {snippets.filter((snippet) => !snippet.isTrash).length > 0 && (
                         <Badge variant="secondary" className="ml-auto">
-                          {snippets.length}
+                          {snippets.filter((snippet) => !snippet.isTrash).length}
                         </Badge>
                       )}
                       <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -521,7 +346,7 @@ export function AppSidebar() {
                                         <Star className="h-3.5 w-3.5 text-muted-foreground hover:text-yellow-400" />
                                       </button>
                                     )}
-                                    
+
                                     <button
                                       onClick={(e) => moveToTrash(snippet, e)}
                                       className="p-1 rounded-md hover:bg-background"
@@ -604,7 +429,7 @@ export function AppSidebar() {
         </SidebarContent>
 
         <SidebarFooter>
-          
+
         </SidebarFooter>
 
         <SidebarRail />

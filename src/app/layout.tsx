@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import "@/app/globals.css";
 export const metadata: Metadata = {
-  title: "Snippyvault",
-  description: "Snippyvault",
+  title: "CodEX",
+  description: "Codex is a snippet manager that allows you to save and manage your code snippets.",
 };
 
 export default function RootLayout({

@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CodePanel from "@/components/playground/CodePanel";
 import PreviewPanel from "@/components/playground/previewPanel";
 import { Badge } from "@/components/ui/badge";
-import { Code2, Eye, Star, X, Save, Trash2, ChevronLeft, Loader2 } from "lucide-react";
+import { Code2, Eye, Star, X, Trash2, ChevronLeft, Loader2, Pencil } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -23,11 +23,20 @@ import { useSearchParams } from "next/navigation";
 import { getSnippetById, updateSnippet, addSnippet } from "@/lib/db";
 import { SnippetDetails } from "@/types/snippets";
 import { DataContext } from "@/components/providers/dataProvider";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { motion } from "framer-motion";
+import { toast } from "sonner";
+import React, { Suspense } from 'react';
+import Spinner from "@/components/ui/spinner";
 
-export default function Playground() {
+export default function PlaygroundPage() {
+    return (
+        <Suspense fallback={<Spinner />}>
+            <Playground />
+        </Suspense>
+    );
+}
+
+function Playground() {
     const [snippet, setSnippet] = useState<SnippetDetails>(
         {
             title: "",
@@ -88,9 +97,11 @@ export default function Playground() {
                     setSnippets(snippets.map(s => 
                     s.id === parseInt(snippetId) ? {...snippet, isTrash: false} : s
                     ));
+                    toast.success('Snippet updated successfully');
                 }
             } catch (error) {
                 console.error(error);
+                toast.error('Failed to update snippet');
             }
             finally{
                 setDialogOpen(false);
@@ -103,9 +114,11 @@ export default function Playground() {
                 if(newSnippet){
                     setSnippets([...snippets, newSnippet]);
                     router.push(`/dashboard/playground?snippet=${newSnippet.id}`);
+                    toast.success('Snippet created successfully');
                 }
             } catch (error) {
                 console.error(error);
+                toast.error('Failed to create snippet');
             }
             finally{
                 setDialogOpen(false);
@@ -154,12 +167,14 @@ export default function Playground() {
         ));
         try {
             await updateSnippet(parseInt(snippetId), updatedSnippet);
+            toast.success('Snippet moved to trash successfully');
         } catch (error) {
             console.error(error);
             setSnippets(snippets.map(s => 
                 s.id === parseInt(snippetId) ? snippet : s
             ));
             setSnippet(snippet);
+            toast.error('Failed to move snippet to trash');
         }
         finally{
             setDialogOpen(false);
@@ -179,12 +194,19 @@ export default function Playground() {
             ));
             try {
                 await updateSnippet(parseInt(snippetId), updatedSnippet);
+                if(updatedSnippet.isFavorite){
+                    toast.success('Snippet added to favorites successfully');
+                }
+                else{
+                    toast.success('Snippet removed from favorites successfully');
+                }
             } catch (error) {
                 console.error(error);
                 setSnippet(snippet);
                 setSnippets(snippets.map(s => 
                     s.id === parseInt(snippetId) ? snippet : s
                 ));
+                toast.error('Failed to update snippet');
             }
         }
         else{
@@ -192,6 +214,12 @@ export default function Playground() {
                 ...snippet,
                 isFavorite: !snippet.isFavorite,
             }); 
+            if(snippet.isFavorite){
+                toast.success('Snippet added to favorites successfully');
+            }
+            else{
+                toast.success('Snippet removed from favorites successfully');
+            }
         }
     }
     
@@ -216,7 +244,7 @@ export default function Playground() {
                         )}
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-4 justify-end">
                         <Button 
                             variant="outline" 
                             size="sm"
@@ -248,9 +276,9 @@ export default function Playground() {
                         
                         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                             <DialogTrigger asChild>
-                                <Button size="sm" className="gap-1.5">
-                                    <Save className="h-4 w-4" />
-                                    Save
+                                <Button size="sm" className="gap-1.5 hover:bg-primary/10 hover:text-primary transition-colors">
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    Update
                                 </Button>
                             </DialogTrigger>
                             <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
@@ -261,7 +289,7 @@ export default function Playground() {
                                     </DialogDescription>
                                 </DialogHeader>   
                                 
-                                <div className="flex-1 overflow-y-auto pr-2 my-4">
+                                <div className="flex-1 overflow-y-auto p-2 my-4">
                                     <div className="space-y-4">
                                         <div className="space-y-2">
                                             <Label htmlFor="name" className="text-sm font-medium">Title</Label>
@@ -331,7 +359,7 @@ export default function Playground() {
                                     </div>
                                 </div>
                                 
-                                <DialogFooter className="flex items-center justify-between flex-row border-t pt-4 mt-auto">
+                                <DialogFooter className="flex items-center justify-between sm:justify-between flex-col border-t pt-4 mt-auto">
                                     {snippetId && !snippet?.isTrash && (
                                         <Button 
                                             variant="outline" 
@@ -348,7 +376,7 @@ export default function Playground() {
                                         type="submit" 
                                         onClick={handleSave}
                                         disabled={isSaving}
-                                        className="min-w-[100px] rounded-lg"
+                                        className="min-w-[100px] rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
                                     >
                                         {isSaving ? (
                                             <>

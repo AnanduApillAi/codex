@@ -1,7 +1,7 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
-import { ClipboardCopy, Code2, Star } from 'lucide-react';
+import { Copy, Code2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { SnippetDetails } from '@/types/snippets';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
 export function SnippetCard({ snippet }: { snippet: SnippetDetails }) {
-  const [isHovering, setIsHovering] = useState(false);
   
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -34,8 +33,6 @@ export function SnippetCard({ snippet }: { snippet: SnippetDetails }) {
   return (
     <Card 
       className="overflow-hidden transition-all duration-300 border-border hover:border-primary/50 hover:shadow-md h-full flex flex-col"
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
     >
       {hasCode && (
         <div className="h-32 bg-muted/50 relative overflow-hidden">
@@ -66,7 +63,7 @@ export function SnippetCard({ snippet }: { snippet: SnippetDetails }) {
             className="h-8 w-8 rounded-full transition-opacity duration-200 hover:bg-muted hover:text-muted-foreground"
             onClick={handleCopy}
           >
-            <ClipboardCopy className="h-4 w-4" />
+            <Copy className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
