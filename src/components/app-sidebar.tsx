@@ -21,9 +21,9 @@ import {
 } from "@/components/ui/collapsible";
 import {
   Sidebar,
-  SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
@@ -46,20 +46,30 @@ import { Separator } from "./ui/separator";
 import { motion } from "framer-motion";
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { toast } from "sonner";
+import { Suspense } from "react";
 
 
-export function AppSidebar() {
+// Create a new component to handle search params
+function SidebarWithParams() {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const currentSnippetId = searchParams.get("snippet");
+  
+  return <SidebarContent pathname={pathname} currentSnippetId={currentSnippetId} />;
+}
+
+// Move the main sidebar content to a separate component
+function SidebarContent({ pathname, currentSnippetId }: { 
+  pathname: string; 
+  currentSnippetId: string | null; 
+}) {
   const { snippets, setSnippets } = useContext(DataContext);
   const [favorites, setFavorites] = useState<SnippetDetails[]>([]);
   const [trash, setTrash] = useState<SnippetDetails[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [snippetToDelete, setSnippetToDelete] = useState<SnippetDetails | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const currentSnippetId = searchParams.get("snippet");
 
   const isActive = (id: number | undefined) => {
     return pathname.includes('/dashboard/playground') && currentSnippetId === id?.toString();
@@ -189,7 +199,7 @@ export function AppSidebar() {
 
         </SidebarHeader>
 
-        <SidebarContent>
+        <SidebarGroupContent>
           <SidebarGroup >
             <SidebarMenu>
               <SidebarMenuItem>
@@ -426,7 +436,7 @@ export function AppSidebar() {
 
             </SidebarMenu>
           </SidebarGroup>
-        </SidebarContent>
+        </SidebarGroupContent>
 
         <SidebarFooter>
 
@@ -475,6 +485,37 @@ export function AppSidebar() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Main export component
+export function AppSidebar() {
+  return (
+    <Suspense fallback={<SidebarLoading />}>
+      <SidebarWithParams />
+    </Suspense>
+  );
+}
+
+// Add a loading component
+function SidebarLoading() {
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        {/* Basic loading state for header */}
+        <div className="p-4">
+          <div className="h-8 w-24 bg-muted/20 animate-pulse rounded" />
+        </div>
+      </SidebarHeader>
+      <SidebarGroupContent>
+        <div className="p-4 space-y-4">
+          <div className="h-4 w-3/4 bg-muted/20 animate-pulse rounded" />
+          <div className="h-4 w-2/3 bg-muted/20 animate-pulse rounded" />
+          <div className="h-4 w-3/4 bg-muted/20 animate-pulse rounded" />
+        </div>
+      </SidebarGroupContent>
+      <SidebarRail />
+    </Sidebar>
   );
 }
 
