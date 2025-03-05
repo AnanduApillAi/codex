@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Shield, Zap, } from "lucide-react";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { ShinyButton } from "../magicui/shiny-button";
+import Link from "next/link";
 
 
 export function HeroSection() {
@@ -75,9 +76,11 @@ export function HeroSection() {
               transition={{ delay: 0.5 }}
               className="flex flex-col sm:flex-row gap-4 mb-10 md:mb-16"
             >
+              <Link href="/dashboard">  
               <ShinyButton className="w-full sm:w-auto text-sm md:text-base ">
                 Start Saving Snippets <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5" />
               </ShinyButton>
+              </Link>
             </motion.div>
 
             <motion.div
