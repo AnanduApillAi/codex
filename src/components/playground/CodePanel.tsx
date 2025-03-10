@@ -78,7 +78,7 @@ export default function CodePanel({title, language, code, setCode}: CodePanelPro
                     </div>
                 </div>
                 
-                <div className="flex-1">
+                <div className="flex-1 overflow-hidden">
                     <CodeMirror
                         value={code}
                         height="100%"
