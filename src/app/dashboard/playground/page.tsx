@@ -393,7 +393,7 @@ function Playground() {
                     </div>
                 </div>
                 
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 overflow-scroll">
                     {isPreview ? (
                         <div className="p-4 h-full">
                             <PreviewPanel 
